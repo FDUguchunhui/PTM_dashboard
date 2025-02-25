@@ -1,0 +1,213 @@
+```{r}
+# Uncomment the following lines if you need to install packages:
+# install.packages(c("dplyr", "ggplot2", "stringr"))
+# install.packages("arrow")
+
+library(dplyr)
+library(ggplot2)
+library(stringr)
+library(arrow)
+```
+
+
+```{r}
+# Define target PTM parameters (similar to a Python tuple)
+TARGET_PTM <- c("Citrullination", "UniMod:7", "R")
+
+# Set the path to the PTM data (parquet file)
+PTM_DATA <- "/Users/cgu3/Documents/diann/data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_citrullination_report-lib.parquet"
+
+```
+
+
+# Data loading
+```{r}
+# Read metadata CSV
+metadata <- readr::read_csv("data/metadata.csv")
+print(metadata)
+
+# Read the parquet file using the arrow package
+dat_raw <- read_parquet(PTM_DATA)
+print(dat_raw)
+
+# Left join metadata with the citrullination data on column "ID"
+dat <- merge(dat_raw, metadata, by = "ID", all.x = TRUE)
+head(dat)
+```
+
+
+# Create PTM Indicator Columns
+```{r}
+# Check if 'Modified.Sequence' contains TARGET_PTM[2] ("UniMod:7")
+dat$has_target_PTM <- grepl(TARGET_PTM[2], dat$Modified.Sequence)
+
+# Check if 'Stripped.Sequence' contains TARGET_PTM[3] ("R")
+dat$has_target_site <- grepl(TARGET_PTM[3], dat$Stripped.Sequence)
+
+# Count occurrences of TARGET_PTM[2] in 'Modified.Sequence'
+dat$num_PTM <- str_count(dat$Modified.Sequence, fixed(TARGET_PTM[2]))
+
+```
+
+
+# Aggregate Total Intensity
+
+```{r}
+total_intensity <- dat %>%
+  group_by(Run, ID, assay, has_target_PTM) %>%
+  summarise(total_intensity = sum(`Precursor.Quantity`, na.rm = TRUE)) %>%
+  ungroup() %>%
+  mutate(total_intensity = log10(total_intensity)) %>%
+  left_join(metadata, by = "ID")
+
+print(total_intensity)
+
+```
+
+# Plot: Histogram by Group for Each Assay
+```{r}
+# Filter rows with non-missing 'group'
+total_intensity_labeled <- total_intensity %>% filter(!is.na(group))
+
+# Aggregate the data by summing intensities grouped by 'group', 'ID', and 'assay'
+aggregated_intensity <- total_intensity_labeled %>%
+  group_by(group, ID, assay) %>%
+  summarise(total_intensity = sum(total_intensity, na.rm = TRUE)) %>%
+  ungroup()
+
+# Define colors for groups (e.g., Case and Control)
+case_colors <- c("blue", "orange")
+
+# Loop through unique assays and plot histograms
+unique_assays <- unique(aggregated_intensity$assay)
+for (ass in unique_assays) {
+  subset_assay <- aggregated_intensity %>% filter(assay == ass)
+  p <- ggplot(subset_assay, aes(x = total_intensity, fill = group)) +
+         geom_histogram(bins = 100, alpha = 0.5, position = "identity") +
+         labs(title = paste("Distribution of total intensity by Case/Control for assay", ass),
+              x = "Total intensity (log10)",
+              y = "Frequency") +
+         scale_fill_manual(values = case_colors) +
+         theme_minimal()
+  print(p)
+}
+
+```
+
+# Plot: Histogram by Combination of Group and Modification Status
+```{r}
+# Create a combined label for group and PTM status
+total_intensity_labeled <- total_intensity_labeled %>%
+  mutate(ptm_label = ifelse(has_target_PTM, "Modified peptide", "Unmodified peptide"),
+         combined = paste(group, ptm_label, sep = ", "))
+
+
+p <- ggplot(total_intensity_labeled, aes(x = total_intensity, fill = combined)) +
+  geom_histogram(bins = 100, alpha = 0.5, position = "identity") +
+  labs(x = "Total intensity (log10)", y = "Frequency",
+       title = paste("Distribution of total intensity of peptide with", TARGET_PTM[1],
+                     "on site", TARGET_PTM[3])) +
+  theme_minimal()
+print(p)
+
+```
+
+# Plot: Histogram by Cancer Type for Assay "IgB"
+```{r}
+total_intensity_IgB <- total_intensity %>%
+  filter(has_target_PTM, assay == "IgB", !is.na(`Cancer Type`))
+
+p <- ggplot(total_intensity_IgB, aes(x = total_intensity, fill = `Cancer Type`)) +
+  geom_histogram(bins = 30, alpha = 0.3, position = "identity") +
+  labs(x = "Total intensity (log10)", y = "Frequency",
+       title = paste("Distribution of total intensity of peptide with", TARGET_PTM[1],
+                     "on site", TARGET_PTM[3], "by Cancer Type")) +
+  theme_minimal()
+print(p)
+
+```
+# Aggregation at Peptide and Protein Levels
+```{r}
+# Peptide-level aggregation: group by ID, assay, and Stripped.Sequence; take any TRUE for has_target_PTM
+peptide_level_aggregation <- dat %>%
+  filter(has_target_site == TRUE) %>%
+  group_by(ID, assay, Stripped.Sequence) %>%
+  summarise(has_target_PTM = any(has_target_PTM)) %>%
+  ungroup()
+
+# Protein-level aggregation: group by ID, assay, and Protein.Group; take any TRUE for has_target_PTM
+protein_level_aggregation <- dat %>%
+  filter(has_target_site == TRUE) %>%
+  group_by(ID, assay, Protein.Group) %>%
+  summarise(has_target_PTM = any(has_target_PTM)) %>%
+  ungroup()
+
+# Summarise the mean of has_target_PTM for each assay at the peptide level
+peptide_level_summary <- peptide_level_aggregation %>%
+  group_by(assay) %>%
+  summarise(mean_has_target_PTM = mean(has_target_PTM))
+print(peptide_level_summary)
+
+# Summarise the mean of has_target_PTM for each assay at the protein level
+protein_level_summary <- protein_level_aggregation %>%
+  group_by(assay) %>%
+  summarise(mean_has_target_PTM = mean(has_target_PTM))
+print(protein_level_summary)
+
+```
+
+# Plot: Distribution of Proportion of Modified Proteins
+
+```{r}
+# Merge protein-level aggregation with metadata and filter non-missing group values
+dat_labeled_prot <- merge(protein_level_aggregation, metadata, by = "ID")
+dat_labeled_prot <- dat_labeled_prot %>% filter(!is.na(group))
+
+# Calculate the mean of has_target_PTM for each ID, assay, and group
+mean_has_PTM <- dat_labeled_prot %>%
+  group_by(ID, assay, group) %>%
+  summarise(mean_has_target_PTM = mean(has_target_PTM)) %>%
+  ungroup()
+
+unique_assays <- unique(mean_has_PTM$assay)
+for (ass in unique_assays) {
+  subset_assay <- mean_has_PTM %>% filter(assay == ass)
+  p <- ggplot(subset_assay, aes(x = mean_has_target_PTM, fill = group)) +
+         geom_histogram(bins = 50, alpha = 0.5, position = "identity") +
+         labs(x = "Proportion of modified peptides", y = "Frequency",
+              title = paste("Distribution of proportion of modified protein with", TARGET_PTM[1],
+                            "on site", TARGET_PTM[3], "for assay", ass)) +
+         scale_fill_manual(values = c("blue", "orange")) +
+         theme_minimal()
+  print(p)
+}
+
+```
+
+# Plot: Histogram of Total Number of Peptides with PTM (Peptide-Level Aggregation)
+```{r}
+# Merge peptide-level aggregation with metadata and drop rows with missing group values
+dat_labeled_pep <- merge(peptide_level_aggregation, metadata, by = "ID")
+dat_labeled_pep <- dat_labeled_pep %>% filter(!is.na(group))
+
+# Sum up the number of peptides with PTM (TRUE counts as 1, FALSE as 0) for each ID, group, and assay
+total_peptides_with_PTM <- dat_labeled_pep %>%
+  group_by(ID, group, assay) %>%
+  summarise(total_peptides_with_PTM = sum(as.numeric(has_target_PTM))) %>%
+  ungroup()
+
+unique_assays <- unique(total_peptides_with_PTM$assay)
+for (ass in unique_assays) {
+  subset_assay <- total_peptides_with_PTM %>% filter(assay == ass)
+  p <- ggplot(subset_assay, aes(x = total_peptides_with_PTM, fill = group)) +
+         geom_histogram(bins = 50, alpha = 0.5, position = "identity") +
+         labs(x = "Total number of peptides with PTM", y = "Frequency",
+              title = paste("Histogram of Total Number of Peptides with", TARGET_PTM[1],
+                            "on site", TARGET_PTM[3], "by group for assay", ass)) +
+         scale_fill_manual(values = c("blue", "orange")) +
+         theme_minimal()
+  print(p)
+}
+
+```
+
