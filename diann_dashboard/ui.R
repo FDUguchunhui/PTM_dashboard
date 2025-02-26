@@ -37,7 +37,8 @@ ptmAnalysisTab <- tabPanel(
     
     fluidRow(
       column(8,
-             selectInput("cancer_type_dropdown", "Select Cancer Types", choices = NULL, multiple = TRUE)
+             selectInput("cancer_type_dropdown", "Select Cancer Types", 
+                         choices = NULL, selected = c('Breast', 'MERIT Control'), multiple = TRUE)
       ),
       column(4,
              sliderInput("bins_slider", "Number of Bins", min = 10, max = 100, value = 30, step = 1)

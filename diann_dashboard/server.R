@@ -81,12 +81,12 @@ server <- function(input, output, session) {
   total_intensity_data <- reactive({
     req(processed_data())
     processed_data() %>%
-      group_by(Run, has_target_PTM) %>%
+      group_by(plate, ID, assay, evotip, well, has_target_PTM) %>%
       summarise(
         total_intensity = sum(Precursor.Quantity, na.rm = TRUE)) %>%
       ungroup() %>%
       mutate(log_total_intensity = log10(total_intensity)) %>%
-      inner_join(metadata, by = "Run", suffix = c("", ".meta")) %>% 
+      inner_join(metadata, by = "ID", suffix = c("", ".meta")) %>% 
       select(-ends_with(".meta")) %>% 
       filter(!is.na(`Cancer Type`))
   })
@@ -96,9 +96,10 @@ server <- function(input, output, session) {
     req(processed_data())
     processed_data() %>%
       filter(has_target_site) %>%
-      group_by(Run, Protein.Group) %>%
-      summarise(has_target_PTM = any(has_target_PTM), .groups='drop') %>%
-      inner_join(metadata, by = "Run")
+      group_by(plate, ID, assay, evotip, well, Protein.Group) %>%
+      summarise(
+        has_target_PTM = any(has_target_PTM), .groups='drop') %>%
+      inner_join(metadata, by = "ID")
       
   })
   
@@ -107,10 +108,10 @@ server <- function(input, output, session) {
     req(processed_data())
     processed_data() %>%
       filter(has_target_site) %>%
-      group_by(Run, Stripped.Sequence) %>%
+      group_by(plate, ID, assay, evotip, well, Stripped.Sequence) %>%
       summarise(has_target_PTM = any(has_target_PTM),
                 total_intensity = sum(Precursor.Quantity), .groups='drop') %>%
-      inner_join(metadata, by = "Run")
+      inner_join(metadata, by = "ID")
   })
   
   

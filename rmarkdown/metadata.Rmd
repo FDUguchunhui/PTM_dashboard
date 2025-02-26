@@ -43,28 +43,17 @@ metadata <- metadata %>%
     TRUE ~ `Cancer Type`
   ))
 
-```
-
-
-# Create metadata columns from "Run" column
-```{r}
-library(dplyr)
-library(tidyr)
-
-# Define the regex pattern with an inline flag for case insensitivity
-pattern <- "(?i)^([A-Z0-9]+)_([A-Z0-9]+)_([A-Z]+)_(.+?)_([A-Z0-9]+-[A-Z0-9]+)_([0-9]+_[0-9]+)$"
-
-# Extract groups from the 'Run' column and add them as new columns
+# drop columns PLateNumber and Run
 metadata <- metadata %>%
-  extract(
-    col = Run, 
-    into = c("IPAS", "plate", "assay", "ID", "evotip", "well"), 
-    regex = pattern, 
-    remove = FALSE  # keeps the original 'Run' column; set to TRUE to drop it
-  )
+  select(-PLateNumber, -Run)
 
 ```
 
+
+# add Igbound part metadata
+```{r}
+metadata 
+```
 
 
 ```{r}
