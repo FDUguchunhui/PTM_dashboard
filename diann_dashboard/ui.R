@@ -12,14 +12,14 @@ ptmAnalysisTab <- tabPanel(
       column(4,
              selectInput("file_dropdown", "Select PTM File",
                          choices = c("Citrullination_test", "Citrullination", "Hypusine", "Deoxyhypusine"),
-                         selected = "Citrullination_test")
-      )
-    ),
-    
-    fluidRow(
-      column(12, 
-             sliderInput("PTM_qvalue_slider", "PTM Q-value threshold", min=0.9, max=1, 
-                         value=0.95, step = 0.01))
+                         selected = "Citrullination_test")),
+      column(4, 
+             sliderInput("PTM_qvalue_slider", "PTM Q-value threshold", min=0, max=0.1, 
+                         value=0.95, step = 0.01)),
+      column(4, 
+             sliderInput("PTM_site_confidence_slider", "Location confidence", min=0, max=1, 
+                         value=0, step = 0.01)),
+
     ),
     
     # Main Panel with Plots
@@ -62,8 +62,9 @@ ptmAnalysisTab <- tabPanel(
 batchEffect <- tabPanel(
   title = "Batch effect",
   fluidPage(
-    h2("This is another page of your dashboard"),
-    p("Add more content here.")
+    plotlyOutput("total_plate_batch_effect_plot", height = "400px"),
+    plotlyOutput("plate_batch_effect_plot", height = "800px"),
+    plotlyOutput("violin_plot_conditions", height = "800px"),
   )
 )
 

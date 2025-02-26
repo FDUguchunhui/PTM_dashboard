@@ -29,9 +29,20 @@ print(metadata)
 # Read the parquet file using the arrow package
 dat_raw <- read_parquet(PTM_DATA)
 print(dat_raw)
+```
 
+
+```{r}
+# random sample 1% as test data
+dat_sample <- dat_raw[sample(nrow(dat_raw), nrow(dat_raw) * 0.01), ]
+# save as parquet
+write_parquet(dat_sample, "data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_citrullination_report-lib_sample.parquet")
+```
+
+
+```{r}
 # Left join metadata with the citrullination data on column "ID"
-dat <- merge(dat_raw, metadata, by = "ID", all.x = TRUE)
+dat <- dat_raw %>% inner_join(metadata, by = "ID", suffix = c("", ".meta"))
 head(dat)
 ```
 
@@ -132,14 +143,15 @@ print(p)
 peptide_level_aggregation <- dat %>%
   filter(has_target_site == TRUE) %>%
   group_by(ID, assay, Stripped.Sequence) %>%
-  summarise(has_target_PTM = any(has_target_PTM)) %>%
-  ungroup()
+  summarise(has_target_PTM = any(has_target_PTM), 
+            total_intensity = sum(Precursor.Quantity), .groups='drop')
 
 # Protein-level aggregation: group by ID, assay, and Protein.Group; take any TRUE for has_target_PTM
 protein_level_aggregation <- dat %>%
   filter(has_target_site == TRUE) %>%
   group_by(ID, assay, Protein.Group) %>%
-  summarise(has_target_PTM = any(has_target_PTM)) %>%
+  summarise(has_target_PTM = any(has_target_PTM),
+            total_intensity = sum(Precursor.Quantity)) %>%
   ungroup()
 
 # Summarise the mean of has_target_PTM for each assay at the peptide level
@@ -210,4 +222,51 @@ for (ass in unique_assays) {
 }
 
 ```
+
+
+
+```{r}
+# Create violin plota
+total_intensity %>% 
+  left_join((dat_raw %>% select(Run, plate) %>% unique()), by='Run') %>% 
+  ggplot(aes(x = factor(plate), y = `total_intensity`)) +
+  geom_violin(trim = FALSE, fill = "skyblue", alpha = 0.5) +  # Violin plot with fill color
+  geom_boxplot(width = 0.1, outlier.shape = NA) +  # Boxplot inside violin for median and quartiles
+  facet_wrap(~assay + has_target_PTM, labeller = labeller(has_target_PTM = c("TRUE" = "Modified peptides", "FALSE" = "Unmodified peptides"))) +
+  theme_minimal() +  # Minimal theme for cleaner look
+  labs(x = "Batch ID", y = "log10(Precursor.Quantity)", title = "Total intensity of samples group by plate") +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1))  # Rotate x-axis labels if needed
+
+```
+```{r}
+modified_peptide_level <- dat %>%
+  group_by(Run, Modified.Sequence) %>%
+  summarise(ID=first(ID),
+            assay=first(assay),
+            Genes=first(Genes),
+            Protein.Group=first(Protein.Group),
+            Protein.Ids=Protein.Ids,
+    has_target_PTM = any(has_target_PTM), 
+            total_intensity = sum(Precursor.Quantity), .groups='drop')
+
+# Protein-level aggregation: group by ID, assay, and Protein.Group; take any TRUE for has_target_PTM
+protein_level_aggregation <- dat %>%
+  filter(has_target_site == TRUE) %>%
+  group_by(ID, assay, Protein.Group) %>%
+  summarise(has_target_PTM = any(has_target_PTM),
+            total_intensity = sum(Precursor.Quantity)) %>%
+  ungroup()
+```
+
+
+
+```{r}
+# pivot the data into wide format with modified.Sequence as rows and ID in column
+modified_peptide_level %>% pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, Modified.Sequence), names_from = c(ID, assay), values_from = total_intensity)
+```
+```{r}
+# this is weird to have the same peptide with different protein.Group
+modified_peptide_level %>% filter(ID=='MCED_108' &  assay=='IgB' & Modified.Sequence=='FLIPNASQAESK')
+```
+
 

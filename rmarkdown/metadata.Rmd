@@ -1,0 +1,82 @@
+```{r}
+# Load required packages
+library(readxl)   # For reading Excel files
+library(tidyverse)    # For data manipulation
+library(stringr)  # For regex operations
+```
+
+
+```{r}
+# Read the Excel file
+metadata <- read_excel("data/EI_key_rainbow.xlsx")
+
+# Function to extract IPAS part from filename
+extract_ipas_part <- function(filename) {
+  pattern <- "(IPAS.*?)\\.htrms"
+  match <- str_match(filename, pattern)[,2]
+  return(match)
+}
+```
+
+
+```{r}
+# Apply the function to the 'PLateNumber' column
+metadata <- metadata %>%
+  mutate(Run = extract_ipas_part(PLateNumber))
+
+# Create 'group' variable based on 'Is_Case'
+metadata <- metadata %>%
+  mutate(group = case_when(
+    Is_Case == 1 ~ "Case",
+    Is_Case == 0 ~ "Control",
+    TRUE ~ "Unknown"
+  ))
+```
+
+# data clean 
+```{r}
+# Breast and Breast Cancer into 'Breast'
+metadata <- metadata %>%
+  mutate(`Cancer Type` = case_when(
+    `Cancer Type` %in% c("Breast", "Breast Cancer") ~ "Breast",
+    `Cancer Type` %in% c("GEJ", "GEJ and Esophageal", "GEJ and Gastric", "GEJ, Esophageal, and Gastric") ~ "GEJ",
+    TRUE ~ `Cancer Type`
+  ))
+
+```
+
+
+# Create metadata columns from "Run" column
+```{r}
+library(dplyr)
+library(tidyr)
+
+# Define the regex pattern with an inline flag for case insensitivity
+pattern <- "(?i)^([A-Z0-9]+)_([A-Z0-9]+)_([A-Z]+)_(.+?)_([A-Z0-9]+-[A-Z0-9]+)_([0-9]+_[0-9]+)$"
+
+# Extract groups from the 'Run' column and add them as new columns
+metadata <- metadata %>%
+  extract(
+    col = Run, 
+    into = c("IPAS", "plate", "assay", "ID", "evotip", "well"), 
+    regex = pattern, 
+    remove = FALSE  # keeps the original 'Run' column; set to TRUE to drop it
+  )
+
+```
+
+
+
+```{r}
+# Display metadata
+print(metadata)
+colnames(metadata)
+
+# Count occurrences of each 'Cancer Type'
+table(metadata$`Cancer Type`)
+
+# Save the modified metadata to CSV
+write.csv(metadata, "data/metadata.csv", row.names = FALSE)
+
+```
+
