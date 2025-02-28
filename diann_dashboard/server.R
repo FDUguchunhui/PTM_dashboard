@@ -6,6 +6,7 @@ library(stringr)
 library(ggplot2)
 library(plotly)
 library(arrow)
+library(data.table)
 
 # Define PTM target information
 TARGET_PTM <- list(
@@ -118,16 +119,18 @@ server <- function(input, output, session) {
   
   # modified-peptide level
   modified_peptide_level <- reactive({
+
+    dt <- as.data.table(processed_data())  # Convert to data.table
     
-    processed_data() %>% 
-      group_by(plate, ID, assay, evotip, well, Modified.Sequence) %>%
-      summarise(
-                Genes=first(Genes),
-                Protein.Group=first(Protein.Group),
-                Protein.Ids=first(Protein.Ids),
-                has_target_PTM = first(has_target_PTM), 
-                total_intensity = sum(Precursor.Quantity), .groups='drop')
-  })
+    dt[, .(
+        Genes = Genes[1],
+        Protein.Group = Protein.Group[1],
+        Protein.Ids = Protein.Ids[1],
+        has_target_PTM = has_target_PTM[1],
+        total_intensity = sum(Precursor.Quantity, na.rm = TRUE)
+      ), by = .(plate, ID, assay, evotip, well, Modified.Sequence)]
+    
+      })
   
   wide_format <- reactive({
     req(modified_peptide_level())
