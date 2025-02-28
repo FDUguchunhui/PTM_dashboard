@@ -8,27 +8,11 @@ library(plotly)
 library(arrow)
 library(data.table)
 
-# Define PTM target information
-TARGET_PTM <- list(
-  Citrullination_test = list(name = "Citrullination",
-                             path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_citrullination_report-lib_sample.parquet",
-                             symbol = "citrullination", unimod='UniMod:7', site = "R", mass_shift = 0.984016),
-  Citrullination = list(name = "Citrullination",
-                        path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_citrullination_report-lib.parquet",
-                        symbol = "citrullination", unimod='UniMod:7', site = "R", mass_shift = 0.984016),
-  Hypusine = list(name = "Hypusine",
-                  path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_hypusine_report-lib.parquet",
-                  symbol = "hypusine", unimod='UniMod:379', site = "K", mass_shift = 87.068414),
-  Deoxyhypusine = list(name = "Deoxyhypusine",
-                       path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_deoxyhypusine_report-lib.parquet",
-                       symbol = "Deoxyhypusine", unimod='UniMod:1301', site = "K", mass_shift = 71.073499)
-  
-  
-)
 
 metadata <- read_csv("../data/metadata.csv")
 
 source('../R/helper_functions.R')
+source('../R/PTM_definition.R')
 
 # ----------------- Helper Functions -----------------
 
@@ -39,7 +23,7 @@ load_data <- function(ptm_choice) {
   df <- read_parquet(ptm_info$path)
   df %>%
     mutate(
-      has_target_PTM = str_detect(Modified.Sequence, paste(ptm_info$symbol, ptm_info$unimod, sep = "|")),
+      has_target_PTM = str_detect(Modified.Sequence, paste0('\\(', ptm_info$symbol, '\\)', '|', '\\(', ptm_info$unimod, '\\)')),
       has_target_site = str_detect(Stripped.Sequence, ptm_info$site),
       num_PTM = str_count(Modified.Sequence, fixed(ptm_info$symbol))
     )

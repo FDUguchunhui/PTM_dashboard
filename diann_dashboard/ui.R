@@ -1,6 +1,8 @@
 library(shiny)
 library(plotly)
 
+source('../R/PTM_definition.R')
+
 # First page: PTM Analysis tab
 ptmAnalysisTab <- tabPanel(
   title = "Overview",
@@ -11,7 +13,7 @@ ptmAnalysisTab <- tabPanel(
     fluidRow(
       column(4,
              selectInput("file_dropdown", "Select PTM File",
-                         choices = c("Citrullination_test", "Citrullination", "Hypusine", "Deoxyhypusine"),
+                         choices = names(TARGET_PTM),
                          selected = "Citrullination_test")),
       column(4, 
              sliderInput("PTM_qvalue_slider", "PTM Q-value threshold", min=0, max=0.1, 
