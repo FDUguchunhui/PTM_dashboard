@@ -9,18 +9,20 @@ library(arrow)
 
 # Define PTM target information
 TARGET_PTM <- list(
-  Citrullination_test = list(name = "Citrullination_test",
+  Citrullination_test = list(name = "Citrullination",
                              path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_citrullination_report-lib_sample.parquet",
-                             symbol = "UniMod:7", site = "R", mass_shift = 0.984016),
+                             symbol = "citrullination", unimod='UniMod:7', site = "R", mass_shift = 0.984016),
   Citrullination = list(name = "Citrullination",
                         path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_citrullination_report-lib.parquet",
-                        symbol = "UniMod:7", site = "R", mass_shift = 0.984016),
+                        symbol = "citrullination", unimod='UniMod:7', site = "R", mass_shift = 0.984016),
   Hypusine = list(name = "Hypusine",
                   path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_hypusine_report-lib.parquet",
-                  symbol = "Hypusine", site = "K", mass_shift = 114.042927),
+                  symbol = "hypusine", unimod='UniMod:379', site = "K", mass_shift = 87.068414),
   Deoxyhypusine = list(name = "Deoxyhypusine",
                        path = "../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_deoxyhypusine_report-lib.parquet",
-                       symbol = "Deoxyhypusine", site = "K", mass_shift = 98.031300)
+                       symbol = "Deoxyhypusine", unimod='UniMod:1301', site = "K", mass_shift = 71.073499)
+  
+  
 )
 
 metadata <- read_csv("../data/metadata.csv")
@@ -36,7 +38,7 @@ load_data <- function(ptm_choice) {
   df <- read_parquet(ptm_info$path)
   df %>%
     mutate(
-      has_target_PTM = str_detect(Modified.Sequence, ptm_info$symbol),
+      has_target_PTM = str_detect(Modified.Sequence, paste(ptm_info$symbol, ptm_info$unimod, sep = "|")),
       has_target_site = str_detect(Stripped.Sequence, ptm_info$site),
       num_PTM = str_count(Modified.Sequence, fixed(ptm_info$symbol))
     )
@@ -58,23 +60,22 @@ server <- function(input, output, session) {
     # Update Cancer Type Dropdown based on new processed data
     cancer_types <- unique(metadata$`Cancer Type`[!is.na(metadata$`Cancer Type`)])
     updateSelectInput(session, "cancer_type_dropdown",
-                      choices = cancer_types, selected = cancer_types[1])
+                      choices = cancer_types, selected = c('Breast', 'LEAP Control', 'MERIT Control'))
+    
+    updateSelectInput(session, "cancer_type_dropdown_output",
+                      choices = cancer_types, selected = c('Breast', 'LEAP Control', 'MERIT Control'))
   })
   
-  processed_data <- reactiveVal(NULL)
   
-  observe({
-    # q-value filter should only be applied to sequences with detected PTM
-    # sequence without detected PTM will have PTM.Q.Value=0
+  processed_data <- reactive({
+    req(raw_data())
     PTM_filtered <- raw_data() %>%
-      filter(`PTM.Q.Value` <= input$PTM_qvalue_slider
-             & `PTM.Site.Confidence` >= input$PTM_site_confidence_slider
-             & has_target_PTM)
+      filter(`PTM.Q.Value` <= input$PTM_qvalue_slider,
+             `PTM.Site.Confidence` >= input$PTM_site_confidence_slider,
+             has_target_PTM)
     normal_data <- raw_data() %>%
       filter(!has_target_PTM)
-    combined <- rbind(PTM_filtered, normal_data)
-    
-    processed_data(combined)
+    rbind(PTM_filtered, normal_data)
   })
   
   # Total intensity data (log10 transformed)
@@ -115,6 +116,46 @@ server <- function(input, output, session) {
   })
   
   
+  # modified-peptide level
+  modified_peptide_level <- reactive({
+    
+    processed_data() %>% 
+      group_by(plate, ID, assay, evotip, well, Modified.Sequence) %>%
+      summarise(
+                Genes=first(Genes),
+                Protein.Group=first(Protein.Group),
+                Protein.Ids=first(Protein.Ids),
+                has_target_PTM = first(has_target_PTM), 
+                total_intensity = sum(Precursor.Quantity), .groups='drop')
+  })
+  
+  wide_format <- reactive({
+    req(modified_peptide_level())
+    
+    modified_peptide_level() %>% 
+      # rename has_target_PTM to TARGET_PTM[[input$file_dropdown]]$name
+      rename(!!TARGET_PTM[[input$file_dropdown]]$name := has_target_PTM) %>%
+      # mutate(total_intensity = log10(total_intensity)) %>%
+      tidyr::pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, Modified.Sequence, TARGET_PTM[[input$file_dropdown]]$name), 
+                  names_from = c(plate, ID, assay, evotip, well),
+                  values_from = total_intensity, values_fill = 0)
+  })
+  
+  generated_metadata <- reactive({
+    req(modified_peptide_level())
+    
+    metadata2  <- 
+      modified_peptide_level()  %>% 
+      select(plate, ID, assay, evotip, well) %>%
+      unique() %>%
+      mutate(Run=paste(plate, ID, assay, evotip, well, sep='_')) %>% 
+      inner_join(metadata, by='ID')
+    
+    # get Run ID in input$cancer_type_dropdown_output
+    metadata2 %>% 
+      filter(`Cancer Type` %in% input$cancer_type_dropdown_output)
+  }) 
+  
   
   # ----------------- Plot Outputs -----------------
   
@@ -144,14 +185,14 @@ server <- function(input, output, session) {
   output$prot_prop_plot_case_control <- renderPlotly({
     req(protein_level_aggregation(), input$file_dropdown)
     ptm_info <- TARGET_PTM[[input$file_dropdown]]
-    plot_case_control(protein_level_aggregation(), ptm_info, type = "protein", bins = 50)
+    plot_case_control(protein_level_aggregation(), metadata, ptm_info, type = "protein", bins = 50)
   })
   
   # Plot 3: Peptide-level case–control plot
   output$pep_prop_plot_case_control <- renderPlotly({
     req(peptide_level_aggregation(), input$file_dropdown)
     ptm_info <- TARGET_PTM[[input$file_dropdown]]
-    plot_case_control(peptide_level_aggregation(), ptm_info, type = "peptide", bins = 50)
+    plot_case_control(peptide_level_aggregation(), metadata, ptm_info, type = "peptide", bins = 50)
   })
   
   # Plot 4: Histogram of total intensity filtered by Cancer Type
@@ -300,4 +341,41 @@ server <- function(input, output, session) {
   })
   
   
+  #-------------------------modified peptide level------------------------------
+  output$peptide_table <- DT::renderDataTable({
+      
+    # select column
+    selected_table <- wide_format() %>% 
+      select(1:5, generated_metadata()$Run)
+    
+    DT::datatable(selected_table,
+                  options = list(
+                    scrollX = TRUE
+                  ))
+    
+  })
+  
+  output$download_peptide <- downloadHandler(
+    filename = function() {
+      paste("peptide_level_", input$file_dropdown, '_', Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      # Assuming peptide_data() is the reactive that contains your data for the table.
+      # You can also use the data directly if it isn't reactive.
+      selected_table <- wide_format() %>% 
+        select(1:5, generated_metadata()$Run)
+      write.csv(selected_table, file, row.names = FALSE)
+    }
+  )
+  
+  output$download_metadata <- downloadHandler(
+    filename = function() {
+      paste("metadata_", Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      # Assuming peptide_data() is the reactive that contains your data for the table.
+      # You can also use the data directly if it isn't reactive.
+      write.csv(generated_metadata(), file, row.names = FALSE)
+    }
+  )
 }

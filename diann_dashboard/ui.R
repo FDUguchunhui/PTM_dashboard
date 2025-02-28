@@ -72,8 +72,12 @@ batchEffect <- tabPanel(
 peptideLevel <- tabPanel(
   title = "Peptide level",
   fluidPage(
-    h2("This is another page of your dashboard"),
-    p("Add more content here.")
+    # dt table
+    selectInput("cancer_type_dropdown_output", "Select Cancer Types", 
+                       choices = NULL, selected = c('Breast', 'MERIT Control'), multiple = TRUE),
+    DT::dataTableOutput("peptide_table"),
+    downloadButton("download_peptide", "Download Data"),
+    downloadButton("download_metadata", "Download Metadata")
   )
 )
 
