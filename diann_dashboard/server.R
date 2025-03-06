@@ -11,10 +11,6 @@ library(data.table)
 
 metadata <- read_csv("../data/metadata.csv")
 
-source('../R/helper_functions.R')
-source('../R/PTM_definition.R')
-source('../R/data_object.R')
-source('../R/normalization.R')
 
 # ----------------- Helper Functions -----------------
 
@@ -34,6 +30,11 @@ load_data <- function(ptm_choice) {
 # ----------------- Shiny Server -----------------
 
 server <- function(input, output, session) {
+  source('../R/helper_functions.R', local = TRUE)
+  source('../R/PTM_definition.R', local = TRUE)
+  source('../R/data_object.R', local = TRUE)
+  source('../R/normalization.R', local = TRUE)
+
 
   # Use reactiveVal for processed_data to allow manual updates
   raw_data <- reactiveVal(NULL)
@@ -70,37 +71,63 @@ server <- function(input, output, session) {
     req(processed_data())
 
     processed_data() %>%
-      group_by(plate, ID, assay, evotip, well, has_target_PTM) %>%
+      group_by(Run, has_target_PTM) %>%
       summarise(
         total_intensity = sum(Precursor.Quantity, na.rm = TRUE)) %>%
       ungroup() %>%
       mutate(log_total_intensity = log10(total_intensity)) %>%
-      inner_join(metadata, by = "ID", suffix = c("", ".meta")) %>%
-      select(-ends_with(".meta")) %>%
-      filter(!is.na(`Cancer Type`))
+      inner_join(generated_metadata(), by = 'Run', suffix = c('', '.meta')) %>%
+      select(-contains('.meta'))
   })
 
   # Protein-level aggregation
   protein_level_aggregation <- reactive({
     req(processed_data())
-    processed_data() %>%
-      filter(has_target_site) %>%
-      group_by(plate, ID, assay, evotip, well, Protein.Group) %>%
-      summarise(
-        has_target_PTM = any(has_target_PTM), .groups='drop') %>%
-      inner_join(metadata, by = "ID")
+    # processed_data() %>%
+    #   filter(has_target_site) %>%
+    #   group_by(Run, Protein.Group) %>%
+    #   summarise(
+    #     has_target_PTM = any(has_target_PTM), .groups='drop') %>%
+    #   inner_join(generated_metadata(), by = 'Run', suffix = c('', '.meta')) %>%
+    #   select(-contains('.meta'))
+
+    dt <- as.data.table(processed_data())  # Convert to data.table
+
+    dt <- dt[, .(
+      Genes = Genes[1],
+      Protein.Ids = Protein.Ids[1],
+      has_target_PTM = has_target_PTM[1],
+      total_intensity = sum(Precursor.Quantity, na.rm = TRUE)
+    ), by = .(Run, Protein.Group)]
+
+    merge(dt, generated_metadata(), by = "Run", suffixes = c("", ".meta"))
+
 
   })
 
   # Peptide-level aggregation
   peptide_level_aggregation <- reactive({
     req(processed_data())
-    processed_data() %>%
-      filter(has_target_site) %>%
-      group_by(plate, ID, assay, evotip, well, Stripped.Sequence) %>%
-      summarise(has_target_PTM = any(has_target_PTM),
-                total_intensity = sum(Precursor.Quantity), .groups='drop') %>%
-      inner_join(metadata, by = "ID")
+    # processed_data() %>%
+    #   filter(has_target_site) %>%
+    #   group_by(Run, Stripped.Sequence) %>%
+    #   summarise(has_target_PTM = any(has_target_PTM),
+    #             total_intensity = sum(Precursor.Quantity), .groups='drop') %>%
+    #   inner_join(generated_metadata(), by = 'Run', suffix = c('', '.meta')) %>%
+    #   select(-contains('.meta'))
+
+    dt <- as.data.table(processed_data())  # Convert to data.table
+
+    dt <- dt[, .(
+      Genes = Genes[1],
+      Protein.Group = Protein.Group[1],
+      Protein.Ids = Protein.Ids[1],
+      has_target_PTM = has_target_PTM[1],
+      total_intensity = sum(Precursor.Quantity, na.rm = TRUE)
+    ), by = .(Run, Stripped.Sequence)]
+
+    merge(dt, generated_metadata(), by = "Run", suffixes = c("", ".meta"))
+
   })
 
 
@@ -120,23 +147,23 @@ server <- function(input, output, session) {
       })
 
   wide_format <- reactive({
-    req(modified_peptide_level())
+    req(peptide_level_aggregation())
 
-    modified_peptide_level() %>%
+    peptide_level_aggregation() %>%
       # rename has_target_PTM to TARGET_PTM[[input$file_dropdown]]$name
       rename(!!TARGET_PTM[[input$file_dropdown]]$name := has_target_PTM) %>%
       # mutate(total_intensity = log10(total_intensity)) %>%
-      tidyr::pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, Modified.Sequence, TARGET_PTM[[input$file_dropdown]]$name),
-                  names_from = c(plate, ID, assay, evotip, well),
+      tidyr::pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, Stripped.Sequence, TARGET_PTM[[input$file_dropdown]]$name),
+                  names_from = Run,
                   values_from = total_intensity, values_fill = 0)
   })
 
   annotated_data <- reactive({
     dat <- wide_format() %>% select(-c(Protein.Group, Protein.Ids, Genes, TARGET_PTM[[input$file_dropdown]]$name))
     dat_matrix <- as.matrix(dat[-1])
-    rownames(dat_matrix) <- dat$Modified.Sequence
+    rownames(dat_matrix) <- dat$Stripped.Sequence
     # create row metadata
-    row_metadata <- wide_format()[, c('Modified.Sequence', 'Protein.Group', 'Protein.Ids', 'Genes', TARGET_PTM[[input$file_dropdown]]$name)]
+    row_metadata <- wide_format()[, c('Stripped.Sequence', TARGET_PTM[[input$file_dropdown]]$name, 'Protein.Group', 'Protein.Ids', 'Genes', TARGET_PTM[[input$file_dropdown]]$name)]
 
     meta <- generated_metadata()
     # filter dat_matrix only keep those in metadata
@@ -149,14 +176,13 @@ server <- function(input, output, session) {
   })
 
   generated_metadata <- reactive({
-    req(modified_peptide_level())
+    req(processed_data())
 
-    modified_peptide_level()  %>%
-    select(plate, ID, assay, evotip, well) %>%
+    processed_data()  %>%
+    select(Run, IPAS, ID, plate, assay, evotip, well) %>%
     unique() %>%
-    mutate(Run=paste(plate, ID, assay, evotip, well, sep='_')) %>%
-    inner_join(metadata, by='ID')
-
+    inner_join(metadata, by='ID') %>%
+    filter(!is.na(`Cancer Type`))
   })
 
 
@@ -168,7 +194,6 @@ server <- function(input, output, session) {
     ptm_info <- TARGET_PTM[[input$file_dropdown]]
 
     plot_data <- total_intensity_data() %>%
-      filter(!is.na(group)) %>%
       mutate(ptm_label = ifelse(has_target_PTM, "Modified peptide", "Unmodified peptide"),
              combined = paste(group, ptm_label, sep = ", "))
 
@@ -184,19 +209,21 @@ server <- function(input, output, session) {
                           ylab = "Frequency")
   })
 
-  # Plot 2: Protein-level case–control plot
-  output$prot_prop_plot_case_control <- renderPlotly({
-    req(protein_level_aggregation(), input$file_dropdown)
-    ptm_info <- TARGET_PTM[[input$file_dropdown]]
-    plot_case_control(protein_level_aggregation(), metadata, ptm_info, type = "protein", bins = 50)
-  })
-
   # Plot 3: Peptide-level case–control plot
   output$pep_prop_plot_case_control <- renderPlotly({
     req(peptide_level_aggregation(), input$file_dropdown)
     ptm_info <- TARGET_PTM[[input$file_dropdown]]
-    plot_case_control(peptide_level_aggregation(), metadata, ptm_info, type = "peptide", bins = 50)
+    plot_case_control(peptide_level_aggregation(), generated_metadata(), ptm_info, type = "peptide", bins = 50)
   })
+
+  # Plot 2: Protein-level case–control plot
+  output$prot_prop_plot_case_control <- renderPlotly({
+    req(protein_level_aggregation(), input$file_dropdown)
+    ptm_info <- TARGET_PTM[[input$file_dropdown]]
+    plot_case_control(protein_level_aggregation(), generated_metadata(), ptm_info, type = "protein", bins = 50)
+  })
+
+
 
   # Plot 4: Histogram of total intensity filtered by Cancer Type
   output$intensity_plot_cancer_type <- renderPlotly({
@@ -227,7 +254,7 @@ server <- function(input, output, session) {
     plot_data <- peptide_level_aggregation() %>%
       filter(`Cancer Type` %in% input$cancer_type_dropdown,
              assay %in% c("FT", "IgB")) %>%
-      group_by(ID, assay, group, `Cancer Type`) %>%
+      group_by(Run, `Cancer Type`, assay) %>%
       summarise(mean_has_target_PTM = mean(has_target_PTM, na.rm = TRUE)) %>%
       ungroup()
 
@@ -251,7 +278,7 @@ server <- function(input, output, session) {
     plot_data <- protein_level_aggregation() %>%
       filter(`Cancer Type` %in% input$cancer_type_dropdown,
              assay %in% c("FT", "IgB")) %>%
-      group_by(ID, assay, group, `Cancer Type`) %>%
+      group_by(Run, `Cancer Type`, assay) %>%
       summarise(mean_has_target_PTM = mean(has_target_PTM, na.rm = TRUE)) %>%
       ungroup()
 
