@@ -45,14 +45,16 @@ server <- function(input, output, session) {
     req(input$file_dropdown)
     new_data <- load_data(input$file_dropdown)
     raw_data(new_data)
+  })
 
+  observe({
     # Update Cancer Type Dropdown based on new processed data
     cancer_types <- unique(metadata$`Cancer Type`[!is.na(metadata$`Cancer Type`)])
     updateSelectInput(session, "cancer_type_dropdown",
-                      choices = cancer_types, selected = c('Breast', 'LEAP Control', 'MERIT Control'))
+                      choices = cancer_types)
 
     updateSelectInput(session, "cancer_type_dropdown_output",
-                      choices = cancer_types, selected = c('Breast', 'LEAP Control', 'MERIT Control'))
+                      choices = cancer_types)
   })
 
 
@@ -142,10 +144,24 @@ server <- function(input, output, session) {
         Protein.Group = Protein.Group[1],
         Protein.Ids = Protein.Ids[1],
         has_target_PTM = has_target_PTM[1],
+        Stripped.Sequence = Stripped.Sequence[1],
         total_intensity = sum(Precursor.Quantity, na.rm = TRUE)
-      ), by = .(plate, ID, assay, evotip, well, Modified.Sequence)]
+      ), by = .(Run, Modified.Sequence)]
 
       })
+
+
+  modified_pep_wide_format <- reactive({
+    req(modified_peptide_level())
+
+    PTM_name <- TARGET_PTM[[input$file_dropdown]]$name
+    modified_peptide_level() %>%
+      rename(!!PTM_name:= has_target_PTM) %>%
+      # mutate(total_intensity = log10(total_intensity)) %>%
+      tidyr::pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, Modified.Sequence, Stripped.Sequence, {{PTM_name}}),
+                         names_from = Run,
+                         values_from = total_intensity, values_fill = 0)
+  })
 
   wide_format <- reactive({
     req(peptide_level_aggregation())
@@ -171,9 +187,25 @@ server <- function(input, output, session) {
     dat_matrix <- dat_matrix[, colnames(dat_matrix) %in% meta$Run]
     # Step 2: Reorder metadata based on column order in dat_matrix
     ordered_meta <- meta[match(colnames(dat_matrix), meta$Run), ]
-    annotated_dat <- AnnotatedData$new(dat_matrix,
+    AnnotatedData$new(dat_matrix,
                                    col_metadata=ordered_meta,
                                    row_metadata=row_metadata)
+  })
+
+  modified_pep_annotated_data <- reactive({
+    dat <- modified_pep_wide_format() %>% select(-c(`Modified.Sequence`, `Stripped.Sequence`, Protein.Group, Protein.Ids, Genes, TARGET_PTM[[input$file_dropdown]]$name))
+    dat_matrix <- as.matrix(dat)
+    # create row metadata
+    row_metadata <- modified_pep_wide_format()[, c('Modified.Sequence', 'Stripped.Sequence', TARGET_PTM[[input$file_dropdown]]$name, 'Protein.Group', 'Protein.Ids', 'Genes')]
+
+    meta <- generated_metadata()
+    # filter dat_matrix only keep those in metadata
+    dat_matrix <- dat_matrix[, colnames(dat_matrix) %in% meta$Run]
+    # Step 2: Reorder metadata based on column order in dat_matrix
+    ordered_meta <- meta[match(colnames(dat_matrix), meta$Run), ]
+    AnnotatedData$new(dat_matrix,
+                                       col_metadata=ordered_meta,
+                                       row_metadata=row_metadata)
   })
 
   generated_metadata <- reactive({
@@ -388,6 +420,56 @@ server <- function(input, output, session) {
                   ))
 
   })
+
+  output$modified_peptide_table <- DT::renderDataTable({
+    req(input$cancer_type_dropdown_output)
+
+    # select column
+    selected_table <- modified_pep_annotated_data()$get_data(
+      assay = input$assay_dropdown_output,
+      cancer_type=input$cancer_type_dropdown_output,
+      normalization=input$normalization_dropdown_output)
+
+    DT::datatable(selected_table,
+                  options = list(
+                    scrollX = TRUE
+                  ))
+
+  })
+
+  output$download_modified_peptide <- downloadHandler(
+    filename = function() {
+      paste("modified_peptide_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
+            input$normalization_dropdown_output, '_',
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      # Assuming peptide_data() is the reactive that contains your data for the table.
+      # You can also use the data directly if it isn't reactive.
+      selected_table <- modified_pep_annotated_data()$get_data(
+        assay = input$assay_dropdown_output,
+        cancer_type=input$cancer_type_dropdown_output,
+        normalization=input$normalization_dropdown_output)
+      write.csv(selected_table, file, row.names = FALSE)
+    }
+  )
+
+  output$download_peptide <- downloadHandler(
+    filename = function() {
+      paste("peptide_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
+            input$normalization_dropdown_output, '_',
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      # Assuming peptide_data() is the reactive that contains your data for the table.
+      # You can also use the data directly if it isn't reactive.
+      selected_table <- annotated_data()$get_data(
+        assay = input$assay_dropdown_output,
+        cancer_type=input$cancer_type_dropdown_output,
+        normalization=input$normalization_dropdown_output)
+      write.csv(selected_table, file, row.names = FALSE)
+    }
+  )
 
   output$download_peptide <- downloadHandler(
     filename = function() {

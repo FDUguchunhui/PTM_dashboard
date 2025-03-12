@@ -1,11 +1,11 @@
 # Define PTM target information
 TARGET_PTM <- list(
-  Citrullination_test = list(name = "Citrullination",
+  Citrullination_test = list(name = "Citrullination_R_sample",
                              symbol = "citrullination_sample", unimod='UniMod:7', site = "R", mass_shift = 0.984016),
   Citrullination = list(name = "Citrullination_R",
                         symbol = "citrullination", unimod='UniMod:7', site = "R", mass_shift = 0.984016),
   Hypusine = list(name = "Hypusine_K",
-                  symbol = "hypusine", unimod='UniMod:379', site = "K", mass_shift = 87.068414),
+                  symbol = "Hypusine", unimod='UniMod:379', site = "K", mass_shift = 87.068414),
   Deoxyhypusine = list(name = "Deoxyhypusine_K",
                        symbol = "Deoxyhypusine", unimod='UniMod:1301', site = "K", mass_shift = 71.073499),
   Trimethylation = list(name='Trimethylation_KR',
