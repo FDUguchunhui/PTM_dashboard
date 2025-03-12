@@ -1,9 +1,9 @@
-batch_effect_norm <- function(data, metadata){
-
+batch_effect_norm <- function(data, metadata) {
   # Step 1: Compute Total Quantity Per Well
   summarized_data <- data.frame(
     plate = metadata$plate,
-    total_intensity = colSums(data[, metadata$Run, drop = FALSE], na.rm = TRUE))
+    total_intensity = colSums(data[, metadata$Run, drop = FALSE], na.rm = TRUE)
+  )
 
   # Step 2: Calculate Median of Each Well
   plate_medians <- summarized_data %>%
@@ -23,11 +23,30 @@ batch_effect_norm <- function(data, metadata){
     normalized_data[, sample_name] <- data[, sample_name] * correction_factor
   }
 
-  # only keep 2 digits after the decimal point
+  # Only keep 2 digits after the decimal point
   normalized_data <- round(normalized_data, digits = 2)
 
-  return(normalized_data)
+  # Step 5: Compute Outlier Removal Threshold Per Well
+  plate_stats <- summarized_data %>%
+    group_by(plate) %>%
+    summarize(
+      plate_Mean = mean(total_intensity, na.rm = TRUE),
+      plate_SD = sd(total_intensity, na.rm = TRUE)
+    )
 
+  # Filter out outliers using 1.96 standard deviations
+  filtered_data <- summarized_data %>%
+    left_join(plate_stats, by = "plate") %>%
+    filter(
+      total_intensity >= (plate_Mean - 1.96 * plate_SD) &
+        total_intensity <= (plate_Mean + 1.96 * plate_SD)
+    ) %>%
+    select(plate, total_intensity)  # Keep relevant columns
+
+  # Keep only data from non-outlier plates
+  final_data <- normalized_data[, metadata$plate %in% filtered_data$plate, drop = FALSE]
+
+  return(final_data)
 }
 
 batch_effect_norm_by_assay <- function(data, metadata) {

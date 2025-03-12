@@ -18,7 +18,8 @@ metadata <- read_csv("../data/metadata.csv")
 # Function to process data given a ptm_choice
 load_data <- function(ptm_choice) {
   ptm_info <- TARGET_PTM[[ptm_choice]]
-  df <- read_parquet(ptm_info$path)
+  path <- sprintf("../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_%s_report-lib.parquet", ptm_info$symbol)
+  df <- read_parquet(path)
   df %>%
     mutate(
       has_target_PTM = str_detect(Modified.Sequence, paste0('\\(', ptm_info$symbol, '\\)', '|', '\\(', ptm_info$unimod, '\\)')),
@@ -149,11 +150,12 @@ server <- function(input, output, session) {
   wide_format <- reactive({
     req(peptide_level_aggregation())
 
+    ptm_info <- TARGET_PTM[[input$file_dropdown]]
+    PTM_name = ptm_info$name
     peptide_level_aggregation() %>%
-      # rename has_target_PTM to TARGET_PTM[[input$file_dropdown]]$name
-      rename(!!TARGET_PTM[[input$file_dropdown]]$name := has_target_PTM) %>%
+      rename(!!PTM_name:= has_target_PTM) %>%
       # mutate(total_intensity = log10(total_intensity)) %>%
-      tidyr::pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, Stripped.Sequence, TARGET_PTM[[input$file_dropdown]]$name),
+      tidyr::pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, Stripped.Sequence, {{PTM_name}}),
                   names_from = Run,
                   values_from = total_intensity, values_fill = 0)
   })
@@ -161,9 +163,8 @@ server <- function(input, output, session) {
   annotated_data <- reactive({
     dat <- wide_format() %>% select(-c(Protein.Group, Protein.Ids, Genes, TARGET_PTM[[input$file_dropdown]]$name))
     dat_matrix <- as.matrix(dat[-1])
-    rownames(dat_matrix) <- dat$Stripped.Sequence
     # create row metadata
-    row_metadata <- wide_format()[, c('Stripped.Sequence', TARGET_PTM[[input$file_dropdown]]$name, 'Protein.Group', 'Protein.Ids', 'Genes', TARGET_PTM[[input$file_dropdown]]$name)]
+    row_metadata <- wide_format()[, c('Stripped.Sequence', TARGET_PTM[[input$file_dropdown]]$name, 'Protein.Group', 'Protein.Ids', 'Genes')]
 
     meta <- generated_metadata()
     # filter dat_matrix only keep those in metadata
@@ -390,13 +391,17 @@ server <- function(input, output, session) {
 
   output$download_peptide <- downloadHandler(
     filename = function() {
-      paste("peptide_level_", input$file_dropdown, '_', Sys.Date(), ".csv", sep = "")
+      paste("peptide_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
+            input$normalization_dropdown_output, '_',
+            Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
-      selected_table <- wide_format() %>%
-        select(1:5, generated_metadata()$Run)
+      selected_table <- annotated_data()$get_data(
+        assay = input$assay_dropdown_output,
+        cancer_type=input$cancer_type_dropdown_output,
+        normalization=input$normalization_dropdown_output)
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
