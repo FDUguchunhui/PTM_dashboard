@@ -71,8 +71,8 @@ batchEffect <- tabPanel(
   )
 )
 
-peptideLevel <- tabPanel(
-  title = "Peptide level",
+modifiedPeptideLevel <- tabPanel(
+  title = "Modified peptide level",
   fluidPage(
     fluidRow(
       # dt table
@@ -89,9 +89,22 @@ peptideLevel <- tabPanel(
       class = "alert alert-warning",
       "Warning: normalization are performed separately for different assays."
     ),
+    DT::dataTableOutput("modified_peptide_table"),
+    downloadButton("download_modified_peptide", "Download Data"),
+    downloadButton("download_metadata", "Download Metadata")
+  )
+)
+
+peptideLevel <- tabPanel(
+  title = "Peptide level",
+  fluidPage(
+    # warning
+    tags$div(
+      class = "alert alert-warning",
+      "Warning: normalization are performed separately for different assays."
+    ),
     DT::dataTableOutput("peptide_table"),
     downloadButton("download_peptide", "Download Data"),
-    downloadButton("download_metadata", "Download Metadata")
   )
 )
 
@@ -108,6 +121,7 @@ ui <- navbarPage(
   "DIANN PTM dashboard",
   ptmAnalysisTab,
   batchEffect,
+  modifiedPeptideLevel,
   peptideLevel,
   proteinLevel
 )

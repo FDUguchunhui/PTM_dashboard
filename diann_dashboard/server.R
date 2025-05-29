@@ -8,12 +8,9 @@ library(plotly)
 library(arrow)
 library(data.table)
 
-
 metadata <- read_csv("../data/metadata.csv")
 
-
 # ----------------- Helper Functions -----------------
-
 
 # Function to process data given a ptm_choice
 load_data <- function(ptm_choice) {
@@ -28,6 +25,49 @@ load_data <- function(ptm_choice) {
     )
 }
 
+# Function to create violin plots with common styling
+create_violin_plot <- function(data, x_var, y_var, facet_var = NULL, title, xlab = "Batch ID", ylab = "log10(Total intensity)") {
+  p <- ggplot(data, aes(x = factor({{x_var}}), y = {{y_var}})) +
+    geom_violin(trim = FALSE, fill = "skyblue", alpha = 0.5) +
+    geom_boxplot(width = 0.1, outlier.shape = NA) +
+    theme_minimal() +
+    labs(x = xlab, y = ylab, title = title) +
+    theme(axis.text.x = element_text(angle = 45, hjust = 1))
+  
+  if (!is.null(facet_var)) {
+    p <- p + facet_wrap(facet_var, scales = "free_y")
+  }
+  
+  ggplotly(p, tooltip = "text")
+}
+
+# Function to create download handler
+create_download_handler <- function(data_func, prefix, file_dropdown, normalization_dropdown) {
+  downloadHandler(
+    filename = function() {
+      paste(prefix, TARGET_PTM[[file_dropdown]]$name, '_',
+            normalization_dropdown, '_',
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      selected_table <- data_func()
+      write.csv(selected_table, file, row.names = FALSE)
+    }
+  )
+}
+
+# Function to render data table
+render_data_table <- function(data_func) {
+  DT::renderDataTable({
+    req(input$cancer_type_dropdown_output)
+    
+    selected_table <- data_func()
+    
+    DT::datatable(selected_table,
+                  options = list(scrollX = TRUE))
+  })
+}
+
 # ----------------- Shiny Server -----------------
 
 server <- function(input, output, session) {
@@ -35,7 +75,6 @@ server <- function(input, output, session) {
   source('../R/PTM_definition.R', local = TRUE)
   source('../R/data_object.R', local = TRUE)
   source('../R/normalization.R', local = TRUE)
-
 
   # Use reactiveVal for processed_data to allow manual updates
   raw_data <- reactiveVal(NULL)
@@ -47,17 +86,14 @@ server <- function(input, output, session) {
     raw_data(new_data)
   })
 
+  # Update Cancer Type Dropdown based on new processed data
   observe({
-    # Update Cancer Type Dropdown based on new processed data
     cancer_types <- unique(metadata$`Cancer Type`[!is.na(metadata$`Cancer Type`)])
-    updateSelectInput(session, "cancer_type_dropdown",
-                      choices = cancer_types)
-
-    updateSelectInput(session, "cancer_type_dropdown_output",
-                      choices = cancer_types)
+    updateSelectInput(session, "cancer_type_dropdown", choices = cancer_types)
+    updateSelectInput(session, "cancer_type_dropdown_output", choices = cancer_types)
   })
 
-
+  # Processed data
   processed_data <- reactive({
     req(raw_data())
     PTM_filtered <- raw_data() %>%
@@ -66,10 +102,12 @@ server <- function(input, output, session) {
              has_target_PTM)
     normal_data <- raw_data() %>%
       filter(!has_target_PTM)
+    # Combine PTM and normal data
+    # the unmodified peptides have to be processed separately because they have a PTM related confidence as 0
     rbind(PTM_filtered, normal_data)
   })
 
-  # Total intensity data (log10 transformed)
+  # Total intensity data 
   total_intensity_data <- reactive({
     req(processed_data())
 
@@ -109,6 +147,9 @@ server <- function(input, output, session) {
   })
 
   # Peptide-level aggregation
+  # peptide level aggregate peptides with the same stripped sequence
+  # no matter the difference in modified sequence (sites, number of PTMs)
+  # for example, for peptide "PEPTIDE", its stripped sequence is "PEPTIDE". it have two modified peptides: "PEPTIDE(P)" and "PE(P)PTIDE". It will result in one peptide level entry with two modified peptides.
   peptide_level_aggregation <- reactive({
     req(processed_data())
     # processed_data() %>%
