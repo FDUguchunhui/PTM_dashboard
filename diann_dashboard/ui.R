@@ -91,6 +91,7 @@ modifiedPeptideLevel <- tabPanel(
     ),
     DT::dataTableOutput("modified_peptide_table"),
     downloadButton("download_modified_peptide", "Download Data"),
+    downloadButton("download_modified_peptide_long", "Download Long Format Data"),
     downloadButton("download_metadata", "Download Metadata")
   )
 )
@@ -105,6 +106,7 @@ peptideLevel <- tabPanel(
     ),
     DT::dataTableOutput("peptide_table"),
     downloadButton("download_peptide", "Download Data"),
+    downloadButton("download_peptide_long", "Download Long Format Data")
   )
 )
 

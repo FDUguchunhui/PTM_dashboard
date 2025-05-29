@@ -33,11 +33,11 @@ create_violin_plot <- function(data, x_var, y_var, facet_var = NULL, title, xlab
     theme_minimal() +
     labs(x = xlab, y = ylab, title = title) +
     theme(axis.text.x = element_text(angle = 45, hjust = 1))
-  
+
   if (!is.null(facet_var)) {
     p <- p + facet_wrap(facet_var, scales = "free_y")
   }
-  
+
   ggplotly(p, tooltip = "text")
 }
 
@@ -60,9 +60,9 @@ create_download_handler <- function(data_func, prefix, file_dropdown, normalizat
 render_data_table <- function(data_func) {
   DT::renderDataTable({
     req(input$cancer_type_dropdown_output)
-    
+
     selected_table <- data_func()
-    
+
     DT::datatable(selected_table,
                   options = list(scrollX = TRUE))
   })
@@ -107,7 +107,7 @@ server <- function(input, output, session) {
     rbind(PTM_filtered, normal_data)
   })
 
-  # Total intensity data 
+  # Total intensity data
   total_intensity_data <- reactive({
     req(processed_data())
 
@@ -194,7 +194,6 @@ server <- function(input, output, session) {
 
   modified_pep_wide_format <- reactive({
     req(modified_peptide_level())
-
     PTM_name <- TARGET_PTM[[input$file_dropdown]]$name
     modified_peptide_level() %>%
       rename(!!PTM_name:= has_target_PTM) %>%
@@ -466,6 +465,7 @@ server <- function(input, output, session) {
     req(input$cancer_type_dropdown_output)
 
     # select column
+
     selected_table <- modified_pep_annotated_data()$get_data(
       assay = input$assay_dropdown_output,
       cancer_type=input$cancer_type_dropdown_output,
@@ -495,22 +495,31 @@ server <- function(input, output, session) {
     }
   )
 
-  output$download_peptide <- downloadHandler(
+  output$download_modified_peptide_long <- downloadHandler(
     filename = function() {
-      paste("peptide_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
+      paste("modified_peptide_long_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
             input$normalization_dropdown_output, '_',
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
-      selected_table <- annotated_data()$get_data(
+      selected_table <- modified_pep_annotated_data()$get_data(
         assay = input$assay_dropdown_output,
         cancer_type=input$cancer_type_dropdown_output,
         normalization=input$normalization_dropdown_output)
+      # convert to long format
+      selected_table <- selected_table %>%
+        # this is bad hardcoded todo: fix it
+        tidyr::pivot_longer(cols = 7:ncol(.),
+                     names_to = "Run",
+                     values_to = "intensity") %>%
+        filter(intensity != 0)
+
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
+
 
   output$download_peptide <- downloadHandler(
     filename = function() {
@@ -528,6 +537,31 @@ server <- function(input, output, session) {
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
+
+  output$download_peptide_long <- downloadHandler(
+    filename = function() {
+      paste("peptide_level_long", TARGET_PTM[[input$file_dropdown]]$name, '_',
+            input$normalization_dropdown_output, '_',
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      # Assuming peptide_data() is the reactive that contains your data for the table.
+      # You can also use the data directly if it isn't reactive.
+      selected_table <- annotated_data()$get_data(
+        assay = input$assay_dropdown_output,
+        cancer_type=input$cancer_type_dropdown_output,
+        normalization=input$normalization_dropdown_output)
+      # convert it into long format
+      selected_table <- selected_table %>%
+        tidyr::pivot_longer(cols = 7:ncol(.),
+                     names_to = "run",
+                     values_to = "intensity") %>%
+        filter(intensity != 0)
+
+      write.csv(selected_table, file, row.names = FALSE)
+    }
+  )
+
 
   output$download_metadata <- downloadHandler(
     filename = function() {
