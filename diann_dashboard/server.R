@@ -68,6 +68,98 @@ render_data_table <- function(data_func) {
   })
 }
 
+# Function to perform t-test analysis
+# This function performs statistical comparison between two groups of cancer types
+# Returns a data frame with log2 fold change, p-values, and significance indicators
+# Parameters:
+#   - annotated_data: AnnotatedData object containing the experimental data
+#   - group1_types: vector of cancer types for group 1
+#   - group2_types: vector of cancer types for group 2
+#   - assay: assay type to analyze ('FT' or 'IgB')
+#   - normalization: normalization method ('none', 'median', 'plate_median')
+#   - pvalue_threshold: threshold for significance testing (default 0.05)
+perform_ttest_analysis <- function(annotated_data, group1_types, group2_types, assay, normalization, pvalue_threshold = 0.05) {
+  # Get data for each group
+
+  group1_data <- annotated_data$get_data(
+    cancer_type = group1_types,
+    assay = assay,
+    normalization = normalization
+  )
+
+  group2_data <- annotated_data$get_data(
+    cancer_type = group2_types,
+    assay = assay,
+    normalization = normalization
+  )
+
+  # Get row metadata columns to identify the intensity columns
+  row_meta_cols <- colnames(annotated_data$get_row_metadata())
+
+  # Get intensity column names (exclude row metadata columns)
+  group1_intensity_cols <- setdiff(colnames(group1_data), row_meta_cols)
+  group2_intensity_cols <- setdiff(colnames(group2_data), row_meta_cols)
+
+  # Initialize results dataframe
+  n_rows <- nrow(group1_data)
+  results <- data.frame(
+    feature_id = 1:n_rows,
+    log2_fold_change = numeric(n_rows),
+    p_value = numeric(n_rows),
+    mean_group1 = numeric(n_rows),
+    mean_group2 = numeric(n_rows),
+    stringsAsFactors = FALSE
+  )
+
+  # Add row metadata to results
+  row_metadata <- annotated_data$get_row_metadata()
+  results <- cbind(row_metadata, results[, c("log2_fold_change", "p_value", "mean_group1", "mean_group2")])
+
+  # Perform t-test for each row (peptide/modified peptide)
+  for (i in 1:n_rows) {
+    group1_values <- as.numeric(group1_data[i, group1_intensity_cols])
+    group2_values <- as.numeric(group2_data[i, group2_intensity_cols])
+
+    # Remove zeros and NAs for more robust analysis
+    group1_values <- group1_values[!is.na(group1_values)]
+    group2_values <- group2_values[!is.na(group2_values)]
+
+    # Calculate means
+    mean_group1 <- mean(group1_values)
+    mean_group2 <- mean(group2_values)
+
+    results$mean_group1[i] <- mean_group1
+    results$mean_group2[i] <- mean_group2
+
+    # Calculate log2 fold change
+    if (mean_group1 > 0 & mean_group2 > 0) {
+      results$log2_fold_change[i] <- log2(mean_group1 / mean_group2)
+    } else {
+      results$log2_fold_change[i] <- NA
+    }
+
+    # Perform t-test if we have enough data points
+    if (length(group1_values) >= 2 & length(group2_values) >= 2) {
+      tryCatch({
+        t_test_result <- t.test(group1_values, group2_values, var.equal = FALSE)
+        results$p_value[i] <- t_test_result$p.value
+      }, error = function(e) {
+        results$p_value[i] <- NA
+      })
+    } else {
+      results$p_value[i] <- NA
+    }
+  }
+
+  # Add significance indicator
+  results$significant <- results$p_value < pvalue_threshold & !is.na(results$p_value)
+
+  # Sort by p-value
+  results <- results[order(results$p_value, na.last = TRUE), ]
+
+  return(results)
+}
+
 # ----------------- Shiny Server -----------------
 
 server <- function(input, output, session) {
@@ -91,6 +183,10 @@ server <- function(input, output, session) {
     cancer_types <- unique(metadata$`Cancer Type`[!is.na(metadata$`Cancer Type`)])
     updateSelectInput(session, "cancer_type_dropdown", choices = cancer_types)
     updateSelectInput(session, "cancer_type_dropdown_output", choices = cancer_types)
+
+    # Update statistical analysis dropdowns
+    updateSelectInput(session, "group1_cancer_types", choices = cancer_types)
+    updateSelectInput(session, "group2_cancer_types", choices = cancer_types)
   })
 
   # Processed data
@@ -571,6 +667,135 @@ server <- function(input, output, session) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
       write.csv(generated_metadata(), file, row.names = FALSE)
+    }
+  )
+
+  # Statistical analysis reactive values
+  ttest_results_modified_peptide <- reactiveVal(NULL)
+  ttest_results_peptide <- reactiveVal(NULL)
+
+  # Run t-test analysis when button is clicked
+  observeEvent(input$run_ttest, {
+    browser()
+    req(input$group1_cancer_types, input$group2_cancer_types,
+        input$stats_assay_dropdown, input$stats_normalization_dropdown)
+
+    # Validate that groups are different
+    if (length(intersect(input$group1_cancer_types, input$group2_cancer_types)) > 0) {
+      showNotification("Error: Groups cannot have overlapping cancer types!", type = "error")
+      return()
+    }
+
+    if (length(input$group1_cancer_types) == 0 || length(input$group2_cancer_types) == 0) {
+      showNotification("Error: Both groups must have at least one cancer type selected!", type = "error")
+      return()
+    }
+
+    # Show progress
+    showNotification("Running t-test analysis...", type = "message", duration = 2)
+
+    tryCatch({
+      # Run analysis for modified peptide level
+
+      modified_peptide_results <- perform_ttest_analysis(
+        modified_pep_annotated_data(),
+        input$group1_cancer_types,
+        input$group2_cancer_types,
+        input$stats_assay_dropdown,
+        input$stats_normalization_dropdown,
+        input$pvalue_threshold
+      )
+      ttest_results_modified_peptide(modified_peptide_results)
+
+      # Run analysis for peptide level
+      peptide_results <- perform_ttest_analysis(
+        annotated_data(),
+        input$group1_cancer_types,
+        input$group2_cancer_types,
+        input$stats_assay_dropdown,
+        input$stats_normalization_dropdown,
+        input$pvalue_threshold
+      )
+      ttest_results_peptide(peptide_results)
+
+      showNotification("T-test analysis completed successfully!", type = "success")
+
+    }, error = function(e) {
+      showNotification(paste("Error in t-test analysis:", e$message), type = "error")
+    })
+  })
+
+  # Statistical Analysis Table Outputs
+  output$ttest_modified_peptide_results <- DT::renderDataTable({
+    req(ttest_results_modified_peptide())
+
+    results <- ttest_results_modified_peptide()
+
+    # Format numeric columns
+    results$log2_fold_change <- round(results$log2_fold_change, 3)
+    results$p_value <- round(results$p_value, 6)
+    results$mean_group1 <- round(results$mean_group1, 2)
+    results$mean_group2 <- round(results$mean_group2, 2)
+
+    DT::datatable(results,
+                  options = list(
+                    scrollX = TRUE,
+                    pageLength = 25,
+                    order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
+                  ),
+                  rownames = FALSE) %>%
+      DT::formatStyle("significant",
+                      backgroundColor = DT::styleEqual(TRUE, "lightgreen"))
+  })
+
+  output$ttest_peptide_results <- DT::renderDataTable({
+    req(ttest_results_peptide())
+
+    results <- ttest_results_peptide()
+
+    # Format numeric columns
+    results$log2_fold_change <- round(results$log2_fold_change, 3)
+    results$p_value <- round(results$p_value, 6)
+    results$mean_group1 <- round(results$mean_group1, 2)
+    results$mean_group2 <- round(results$mean_group2, 2)
+
+    DT::datatable(results,
+                  options = list(
+                    scrollX = TRUE,
+                    pageLength = 25,
+                    order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
+                  ),
+                  rownames = FALSE) %>%
+      DT::formatStyle("significant",
+                      backgroundColor = DT::styleEqual(TRUE, "lightgreen"))
+  })
+
+  # Statistical Analysis Download Handlers
+  output$download_ttest_modified_peptide <- downloadHandler(
+    filename = function() {
+      group1_str <- paste(input$group1_cancer_types, collapse = "_")
+      group2_str <- paste(input$group2_cancer_types, collapse = "_")
+      paste("ttest_modified_peptide_", group1_str, "_vs_", group2_str, "_",
+            input$stats_assay_dropdown, "_", input$stats_normalization_dropdown, "_",
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      req(ttest_results_modified_peptide())
+      write.csv(ttest_results_modified_peptide(), file, row.names = FALSE)
+    }
+  )
+
+  output$download_ttest_peptide <- downloadHandler(
+    filename = function() {
+      group1_str <- paste(input$group1_cancer_types, collapse = "_")
+      group2_str <- paste(input$group2_cancer_types, collapse = "_")
+      paste("ttest_peptide_", group1_str, "_vs_", group2_str, "_",
+            input$stats_assay_dropdown, "_", input$stats_normalization_dropdown, "_",
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      req(ttest_results_peptide())
+      write.csv(ttest_results_peptide(), file, row.names = FALSE)
     }
   )
 }

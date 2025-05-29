@@ -118,6 +118,73 @@ proteinLevel <- tabPanel(
   )
 )
 
+statisticalAnalysis <- tabPanel(
+  title = "Statistical Analysis",
+  fluidPage(
+    titlePanel("T-test Analysis Between Cancer Types"),
+    
+    fluidRow(
+      column(4,
+             selectInput("group1_cancer_types", "Group 1 Cancer Types",
+                         choices = NULL, multiple = TRUE,
+                         selected = NULL),
+             tags$small("Select cancer types for Group 1")
+      ),
+      column(4,
+             selectInput("group2_cancer_types", "Group 2 Cancer Types", 
+                         choices = NULL, multiple = TRUE,
+                         selected = NULL),
+             tags$small("Select cancer types for Group 2")
+      ),
+      column(4,
+             selectInput("stats_assay_dropdown", "Assay",
+                         choices = c('FT', 'IgB'), selected = 'FT'),
+             selectInput("stats_normalization_dropdown", "Normalization",
+                         choices = c('none', 'median', 'plate_median'), selected = 'none')
+      )
+    ),
+    
+    fluidRow(
+      column(12,
+             tags$div(
+               class = "alert alert-info",
+               "T-test will be performed for each peptide/modified peptide between the two selected groups. 
+                Log2 fold change is calculated as log2(mean_group1 / mean_group2)."
+             )
+      )
+    ),
+    
+    fluidRow(
+      column(6,
+             actionButton("run_ttest", "Run T-test Analysis", 
+                         class = "btn-primary btn-lg"),
+             br(), br()
+      ),
+      column(6,
+             numericInput("pvalue_threshold", "P-value Threshold", 
+                         value = 0.05, min = 0.001, max = 1, step = 0.001)
+      )
+    ),
+    
+    fluidRow(
+      column(12,
+             tabsetPanel(
+               tabPanel("Modified Peptide Level Results",
+                       DT::dataTableOutput("ttest_modified_peptide_results"),
+                       br(),
+                       downloadButton("download_ttest_modified_peptide", "Download Results")
+               ),
+               tabPanel("Peptide Level Results", 
+                       DT::dataTableOutput("ttest_peptide_results"),
+                       br(),
+                       downloadButton("download_ttest_peptide", "Download Results")
+               )
+             )
+      )
+    )
+  )
+)
+
 # Main UI using navbarPage to combine multiple pages
 ui <- navbarPage(
   "DIANN PTM dashboard",
@@ -125,5 +192,6 @@ ui <- navbarPage(
   batchEffect,
   modifiedPeptideLevel,
   peptideLevel,
-  proteinLevel
+  proteinLevel,
+  statisticalAnalysis
 )
