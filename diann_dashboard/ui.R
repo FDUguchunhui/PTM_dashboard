@@ -188,8 +188,11 @@ $(document).ready(function() {
 # First page: PTM Analysis tab
 ptmAnalysisTab <- tabPanel(
   title = "Overview",
-  div(class = "plot-card",
-    titlePanel("PTM Analysis Dashboard"),
+
+  tags$div(
+    class = "alert alert-warning",
+    tags$i(class = "fas fa-exclamation-triangle", style = "margin-right: 8px;"),
+    "Warning: Normalization setting set to raw."
   ),
 
   # Main Panel with Plots
@@ -225,9 +228,17 @@ ptmAnalysisTab <- tabPanel(
 # Additional pages defined as tabPanel
 batchEffect <- tabPanel(
   title = "Batch Effect",
+
+  tags$div(
+    class = "alert alert-warning",
+    tags$i(class = "fas fa-exclamation-triangle", style = "margin-right: 8px;"),
+    "Warning: Normalization setting set to raw."
+  ),
+
   div(class = "plot-card",
     plotlyOutput("total_plate_batch_effect_plot", height = "400px")
   ),
+
   div(class = "plot-card",
     plotlyOutput("plate_batch_effect_plot", height = "800px")
   ),
@@ -292,7 +303,7 @@ statisticalAnalysis <- tabPanel(
   title = "Statistical Analysis",
   div(class = "plot-card",
     div(class = "main-header",
-      h3("T-test Analysis Between Cancer Types", style = "margin: 0; color: white;")
+      h3("Statistical Analysis Between Cancer Types", style = "margin: 0; color: white;")
     ),
 
     fluidRow(
@@ -324,7 +335,7 @@ statisticalAnalysis <- tabPanel(
     tags$div(
       class = "alert alert-info",
       tags$i(class = "fas fa-info-circle", style = "margin-right: 8px;"),
-      "T-test will be performed for each peptide/modified peptide between the two selected groups.
+      "Test will be performed between the two selected groups.
        Log2 fold change is calculated as log2(mean_group1 / mean_group2)."
     ),
 
@@ -361,7 +372,8 @@ statisticalAnalysis <- tabPanel(
 
       column(3,
              sliderInput("pvalue_threshold", "P-value Threshold",
-                          value = 0.05, min = 0.001, max = 0.1, step = 0.001),
+                          value = 0.1, min = 0.001, max = 1, step = 0.001),
+             # use input box
              tags$small("Filter results by p-value", class = "text-muted")
       ),
 
@@ -468,7 +480,7 @@ ui <- fluidPage(
         div(style = "margin-bottom: 15px;",
           selectInput("shared_normalization_dropdown", "Normalization",
                       choices = c('none', 'median', 'plate_median'),
-                      selected = 'none')
+                      selected = 'plate_median')
         ),
 
         div(style = "margin-bottom: 15px;",

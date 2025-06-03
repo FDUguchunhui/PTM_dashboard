@@ -4,3 +4,5 @@ data/*
 .idea/
 diann-1.9.2.tar
 .Rproj.user
+output/
+*.py/

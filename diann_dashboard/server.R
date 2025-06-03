@@ -12,6 +12,15 @@ metadata <- read_csv("../data/metadata.csv")
 
 # ----------------- Helper Functions -----------------
 
+# Function to determine missing_fill value based on UI input
+get_missing_fill_value <- function(missing_handling) {
+  if (missing_handling == "fill with 0") {
+    return(0)
+  } else {
+    return(NA)
+  }
+}
+
 # Function to process data given a ptm_choice
 load_data <- function(ptm_choice) {
   ptm_info <- TARGET_PTM[[ptm_choice]]
@@ -544,7 +553,8 @@ server <- function(input, output, session) {
     selected_table <- annotated_data()$create_filtered_view(
       assay = input$shared_assay_dropdown,
       cancer_type=input$shared_cancer_type_dropdown,
-      normalization=input$shared_normalization_dropdown)$get_annotated_data()
+      normalization=input$shared_normalization_dropdown,
+      missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -561,7 +571,8 @@ server <- function(input, output, session) {
     selected_table <- modified_pep_annotated_data()$create_filtered_view(
       assay = input$shared_assay_dropdown,
       cancer_type=input$shared_cancer_type_dropdown,
-      normalization=input$shared_normalization_dropdown)$get_annotated_data()
+      normalization=input$shared_normalization_dropdown,
+      missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -577,7 +588,8 @@ server <- function(input, output, session) {
     selected_table <- protein_annotated_data()$create_filtered_view(
       assay = input$shared_assay_dropdown,
       cancer_type=input$shared_cancer_type_dropdown,
-      normalization=input$shared_normalization_dropdown)$get_annotated_data()
+      normalization=input$shared_normalization_dropdown,
+      missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -598,7 +610,8 @@ server <- function(input, output, session) {
       selected_table <- modified_pep_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
-        normalization=input$shared_normalization_dropdown)$get_annotated_data()
+        normalization=input$shared_normalization_dropdown,
+        missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -615,7 +628,8 @@ server <- function(input, output, session) {
       selected_table <- modified_pep_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
-        normalization=input$shared_normalization_dropdown)$get_annotated_data()
+        normalization=input$shared_normalization_dropdown,
+        missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
       # convert to long format
       selected_table <- selected_table %>%
         # this is bad hardcoded todo: fix it
@@ -641,7 +655,8 @@ server <- function(input, output, session) {
       selected_table <- annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
-        normalization=input$shared_normalization_dropdown)$get_annotated_data()
+        normalization=input$shared_normalization_dropdown,
+        missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -658,7 +673,8 @@ server <- function(input, output, session) {
       selected_table <- annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
-        normalization=input$shared_normalization_dropdown)$get_annotated_data()
+        normalization=input$shared_normalization_dropdown,
+        missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
       # convert it into long format
       browser()
       selected_table <- selected_table %>%
@@ -681,7 +697,8 @@ server <- function(input, output, session) {
       selected_table <- protein_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
-        normalization=input$shared_normalization_dropdown)$get_annotated_data()
+        normalization=input$shared_normalization_dropdown,
+        missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -696,7 +713,8 @@ server <- function(input, output, session) {
       selected_table <- protein_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
-        normalization=input$shared_normalization_dropdown)$get_annotated_data()
+        normalization=input$shared_normalization_dropdown,
+        missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
       # convert it into long format
       selected_table <- selected_table %>%
         tidyr::pivot_longer(cols = 5:ncol(.),
@@ -753,7 +771,8 @@ server <- function(input, output, session) {
         input$stats_assay_dropdown,
         input$shared_normalization_dropdown,
         input$stats_test_type,
-        input$pvalue_threshold
+        input$pvalue_threshold,
+        missing_fill = get_missing_fill_value(input$missing_handling)
       )
       ttest_results_modified_peptide(modified_peptide_results)
 
@@ -793,7 +812,8 @@ server <- function(input, output, session) {
         input$stats_assay_dropdown,
         input$shared_normalization_dropdown,
         input$stats_test_type,
-        input$pvalue_threshold
+        input$pvalue_threshold,
+        missing_fill = get_missing_fill_value(input$missing_handling)
       )
       ttest_results_peptide(peptide_results)
 
@@ -833,7 +853,8 @@ server <- function(input, output, session) {
         input$stats_assay_dropdown,
         input$shared_normalization_dropdown,
         input$stats_test_type,
-        input$pvalue_threshold
+        input$pvalue_threshold,
+        missing_fill = get_missing_fill_value(input$missing_handling)
       )
       ttest_results_protein(protein_results)
 
@@ -849,25 +870,25 @@ server <- function(input, output, session) {
     req(ttest_results_modified_peptide())
 
     results <- ttest_results_modified_peptide()
-    
+
     # Remove the significant column
     results$significant <- NULL
 
     # Apply filters
     if (!is.null(input$auc_filter)) {
-      results <- results[!is.na(results$auc) & 
-                        abs(results$auc - 0.5) >= input$auc_filter[1] | 
+      results <- results[!is.na(results$auc) &
+                        abs(results$auc - 0.5) >= input$auc_filter[1] |
                         abs(results$auc - 0.5) >= input$auc_filter[2], ]
     }
-    
+
     if (!is.null(input$log2fc_filter)) {
-      results <- results[!is.na(results$log2_fc) & 
-                        results$log2_fc >= input$log2fc_filter[1] & 
+      results <- results[!is.na(results$log2_fc) &
+                        results$log2_fc >= input$log2fc_filter[1] &
                         results$log2_fc <= input$log2fc_filter[2], ]
     }
-    
+
     if (!is.null(input$show_significant_only) && input$show_significant_only) {
-      results <- results[!is.na(results$p_value) & 
+      results <- results[!is.na(results$p_value) &
                         results$p_value < input$pvalue_threshold, ]
     }
 
@@ -885,7 +906,7 @@ server <- function(input, output, session) {
                     order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
                   ),
                   rownames = FALSE)
-    
+
     # Make p-values green if below threshold
     dt %>%
       DT::formatStyle("p_value",
@@ -896,25 +917,25 @@ server <- function(input, output, session) {
     req(ttest_results_peptide())
 
     results <- ttest_results_peptide()
-    
+
     # Remove the significant column
     results$significant <- NULL
 
     # Apply filters
     if (!is.null(input$auc_filter)) {
-      results <- results[!is.na(results$auc) & 
-                        results$auc >= input$auc_filter[1] & 
-                        results$auc <= input$auc_filter[2], ]
+      results <- results[!is.na(results$auc) &
+                        abs(results$auc - 0.5) >= input$auc_filter[1] |
+                        abs(results$auc - 0.5) >= input$auc_filter[2], ]
     }
-    
+
     if (!is.null(input$log2fc_filter)) {
-      results <- results[!is.na(results$log2_fc) & 
-                        results$log2_fc >= input$log2fc_filter[1] & 
+      results <- results[!is.na(results$log2_fc) &
+                        results$log2_fc >= input$log2fc_filter[1] &
                         results$log2_fc <= input$log2fc_filter[2], ]
     }
-    
+
     if (!is.null(input$show_significant_only) && input$show_significant_only) {
-      results <- results[!is.na(results$p_value) & 
+      results <- results[!is.na(results$p_value) &
                         results$p_value < input$pvalue_threshold, ]
     }
 
@@ -932,7 +953,7 @@ server <- function(input, output, session) {
                     order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
                   ),
                   rownames = FALSE)
-    
+
     # Make p-values green if below threshold
     dt %>%
       DT::formatStyle("p_value",
@@ -943,6 +964,27 @@ server <- function(input, output, session) {
     req(ttest_results_protein())
 
     results <- ttest_results_protein()
+
+    # Remove the significant column
+    results$significant <- NULL
+
+    # Apply filters
+    if (!is.null(input$auc_filter)) {
+      results <- results[!is.na(results$auc) &
+                        abs(results$auc - 0.5) >= input$auc_filter[1] |
+                        abs(results$auc - 0.5) >= input$auc_filter[2], ]
+    }
+
+    if (!is.null(input$log2fc_filter)) {
+      results <- results[!is.na(results$log2_fc) &
+                        results$log2_fc >= input$log2fc_filter[1] &
+                        results$log2_fc <= input$log2fc_filter[2], ]
+    }
+
+    if (!is.null(input$show_significant_only) && input$show_significant_only) {
+      results <- results[!is.na(results$p_value) &
+                        results$p_value < input$pvalue_threshold, ]
+    }
 
     # Format numeric columns
     results$log2_fc <- round(results$log2_fc, 3)
@@ -958,7 +1000,7 @@ server <- function(input, output, session) {
                     order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
                   ),
                   rownames = FALSE)
-    
+
     # Make p-values green if below threshold
     dt %>%
       DT::formatStyle("p_value",

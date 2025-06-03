@@ -322,6 +322,7 @@ AnnotatedData <- R6Class(
     #' @param cancer_type Vector of cancer type(s) to include
     #' @param assay Vector of assay type(s) to include
     #' @param normalization Normalization method: "none", "median", or "plate_median"
+    #' @param missing_fill Value to fill missing data with. Default is NA (no filling)
     #' @return A new AnnotatedData instance with filtered and optionally normalized data
     #' @examples
     #' \dontrun{
@@ -332,17 +333,23 @@ AnnotatedData <- R6Class(
     #'   normalization = "median"
     #' )
     #' 
-    #' # Multiple criteria
+    #' # Multiple criteria with missing value filling
     #' multi_filtered <- annotated_data$create_filtered_view(
     #'   cancer_type = c("Breast", "Lung"),
     #'   assay = c("RNA-seq", "Proteomics"),
-    #'   normalization = "plate_median"
+    #'   normalization = "plate_median",
+    #'   missing_fill = 0
     #' )
     #' }
-    create_filtered_view = function(cancer_type, assay, normalization = "none") {
+    create_filtered_view = function(cancer_type, assay, normalization = "none", missing_fill = NA) {
       selected_runs <- private$filter_samples(cancer_type, assay)
       data_subset <- private$subset_data(selected_runs)
       normalized_data <- private$apply_normalization(data_subset, normalization, selected_runs)
+      
+      # Fill missing values if missing_fill is not NA
+      if (!is.na(missing_fill)) {
+        normalized_data[is.na(normalized_data)] <- missing_fill
+      }
       
       # Filter col_metadata for selected runs
       filtered_col_metadata <- self$col_metadata[
