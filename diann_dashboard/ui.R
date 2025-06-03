@@ -113,8 +113,24 @@ peptideLevel <- tabPanel(
 proteinLevel <- tabPanel(
   title = "Protein level",
   fluidPage(
-    h2("This is another page of your dashboard"),
-    p("Add more content here.")
+    fluidRow(
+      # dt table
+      selectInput("cancer_type_dropdown_protein", "Select Cancer Types",
+                  choices = NULL, selected = c('Breast', 'MERIT Control'), multiple = TRUE),
+      selectInput("assay_dropdown_protein", "Assay",
+                  choices = c('FT', 'IgB'), selected = c('FT','IgB'), multiple = TRUE),
+      selectInput("normalization_dropdown_protein", "normaliztion",
+                  choices = c('none', 'median', 'plate_median'), selected = 'none'),
+    ),
+
+    # warning
+    tags$div(
+      class = "alert alert-warning",
+      "Warning: normalization are performed separately for different assays."
+    ),
+    DT::dataTableOutput("protein_table"),
+    downloadButton("download_protein", "Download Data"),
+    downloadButton("download_protein_long", "Download Long Format Data")
   )
 )
 
@@ -185,6 +201,11 @@ statisticalAnalysis <- tabPanel(
                        DT::dataTableOutput("ttest_peptide_results"),
                        br(),
                        downloadButton("download_ttest_peptide", "Download Results")
+               ),
+               tabPanel("Protein Level Results",
+                       DT::dataTableOutput("ttest_protein_results"),
+                       br(),
+                       downloadButton("download_ttest_protein", "Download Results")
                )
              )
       )

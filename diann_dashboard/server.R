@@ -78,6 +78,7 @@ server <- function(input, output, session) {
     cancer_types <- unique(metadata$`Cancer Type`[!is.na(metadata$`Cancer Type`)])
     updateSelectInput(session, "cancer_type_dropdown", choices = cancer_types)
     updateSelectInput(session, "cancer_type_dropdown_output", choices = cancer_types)
+    updateSelectInput(session, "cancer_type_dropdown_protein", choices = cancer_types)
 
     # Update statistical analysis dropdowns
     updateSelectInput(session, "group1_cancer_types", choices = cancer_types)
@@ -277,6 +278,19 @@ server <- function(input, output, session) {
                   values_from = total_intensity, values_fill = NA)
   })
 
+  protein_wide_format <- reactive({
+    req(protein_level_aggregation())
+
+    ptm_info <- TARGET_PTM[[input$file_dropdown]]
+    PTM_name = ptm_info$name
+    protein_level_aggregation() %>%
+      rename(!!PTM_name:= has_target_PTM) %>%
+      # mutate(total_intensity = log10(total_intensity)) %>%
+      tidyr::pivot_wider(id_cols=c(Protein.Group, Protein.Ids, Genes, {{PTM_name}}),
+                  names_from = Run,
+                  values_from = total_intensity, values_fill = NA)
+  })
+
   annotated_data <- reactive({
     dat <- wide_format() %>% select(-c(Protein.Group, Protein.Ids, Genes, TARGET_PTM[[input$file_dropdown]]$name))
     dat_matrix <- as.matrix(dat[-1])
@@ -291,6 +305,22 @@ server <- function(input, output, session) {
     AnnotatedData$new(dat_matrix,
                                    col_metadata=ordered_meta,
                                    row_metadata=row_metadata)
+  })
+
+  protein_annotated_data <- reactive({
+    dat <- protein_wide_format() %>% select(-c(Protein.Group, Protein.Ids, Genes, TARGET_PTM[[input$file_dropdown]]$name))
+    dat_matrix <- as.matrix(dat)
+    # create row metadata
+    row_metadata <- protein_wide_format()[, c('Protein.Group', 'Protein.Ids', 'Genes', TARGET_PTM[[input$file_dropdown]]$name)]
+
+    meta <- generated_metadata()
+    # filter dat_matrix only keep those in metadata
+    dat_matrix <- dat_matrix[, colnames(dat_matrix) %in% meta$Run]
+    # Step 2: Reorder metadata based on column order in dat_matrix
+    ordered_meta <- meta[match(colnames(dat_matrix), meta$Run), ]
+    AnnotatedData$new(dat_matrix,
+                                       col_metadata=ordered_meta,
+                                       row_metadata=row_metadata)
   })
 
   modified_pep_annotated_data <- reactive({
@@ -539,6 +569,22 @@ server <- function(input, output, session) {
 
   })
 
+  output$protein_table <- DT::renderDataTable({
+    req(input$cancer_type_dropdown_protein)
+
+    # select column
+    selected_table <- protein_annotated_data()$get_data(
+      assay = input$assay_dropdown_protein,
+      cancer_type=input$cancer_type_dropdown_protein,
+      normalization=input$normalization_dropdown_protein)
+
+    DT::datatable(selected_table,
+                  options = list(
+                    scrollX = TRUE
+                  ))
+
+  })
+
   output$download_modified_peptide <- downloadHandler(
     filename = function() {
       paste("modified_peptide_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
@@ -624,6 +670,42 @@ server <- function(input, output, session) {
     }
   )
 
+  output$download_protein <- downloadHandler(
+    filename = function() {
+      paste("protein_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
+            input$normalization_dropdown_protein, '_',
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      selected_table <- protein_annotated_data()$get_data(
+        assay = input$assay_dropdown_protein,
+        cancer_type=input$cancer_type_dropdown_protein,
+        normalization=input$normalization_dropdown_protein)
+      write.csv(selected_table, file, row.names = FALSE)
+    }
+  )
+
+  output$download_protein_long <- downloadHandler(
+    filename = function() {
+      paste("protein_level_long_", TARGET_PTM[[input$file_dropdown]]$name, '_',
+            input$normalization_dropdown_protein, '_',
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      selected_table <- protein_annotated_data()$get_data(
+        assay = input$assay_dropdown_protein,
+        cancer_type=input$cancer_type_dropdown_protein,
+        normalization=input$normalization_dropdown_protein)
+      # convert it into long format
+      selected_table <- selected_table %>%
+        tidyr::pivot_longer(cols = 5:ncol(.),
+                     names_to = "run",
+                     values_to = "intensity") %>%
+        filter(!is.na(intensity))
+
+      write.csv(selected_table, file, row.names = FALSE)
+    }
+  )
 
   output$download_metadata <- downloadHandler(
     filename = function() {
@@ -639,6 +721,7 @@ server <- function(input, output, session) {
   # Statistical analysis reactive values
   ttest_results_modified_peptide <- reactiveVal(NULL)
   ttest_results_peptide <- reactiveVal(NULL)
+  ttest_results_protein <- reactiveVal(NULL)
 
   # Run t-test analysis when button is clicked
   observeEvent(input$run_ttest, {
@@ -685,6 +768,18 @@ server <- function(input, output, session) {
         input$pvalue_threshold
       )
       ttest_results_peptide(peptide_results)
+
+      # Run analysis for protein level
+      protein_results <- perform_statistical_analysis(
+        protein_annotated_data(),
+        input$group1_cancer_types,
+        input$group2_cancer_types,
+        input$stats_assay_dropdown,
+        input$stats_normalization_dropdown,
+        input$stats_test_type,
+        input$pvalue_threshold
+      )
+      ttest_results_protein(protein_results)
 
       showNotification("Test analysis completed successfully!", type = "success")
 
@@ -738,6 +833,28 @@ server <- function(input, output, session) {
                       backgroundColor = DT::styleEqual(TRUE, "lightgreen"))
   })
 
+  output$ttest_protein_results <- DT::renderDataTable({
+    req(ttest_results_protein())
+
+    results <- ttest_results_protein()
+
+    # Format numeric columns
+    results$log2_fold_change <- round(results$log2_fold_change, 3)
+    results$p_value <- round(results$p_value, 6)
+    results$mean_group1 <- round(results$mean_group1, 2)
+    results$mean_group2 <- round(results$mean_group2, 2)
+
+    DT::datatable(results,
+                  options = list(
+                    scrollX = TRUE,
+                    pageLength = 25,
+                    order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
+                  ),
+                  rownames = FALSE) %>%
+      DT::formatStyle("significant",
+                      backgroundColor = DT::styleEqual(TRUE, "lightgreen"))
+  })
+
   # Statistical Analysis Download Handlers
   output$download_ttest_modified_peptide <- downloadHandler(
     filename = function() {
@@ -764,6 +881,20 @@ server <- function(input, output, session) {
     content = function(file) {
       req(ttest_results_peptide())
       write.csv(ttest_results_peptide(), file, row.names = FALSE)
+    }
+  )
+
+  output$download_ttest_protein <- downloadHandler(
+    filename = function() {
+      group1_str <- paste(input$group1_cancer_types, collapse = "_")
+      group2_str <- paste(input$group2_cancer_types, collapse = "_")
+      paste("ttest_protein_", group1_str, "_vs_", group2_str, "_",
+            input$stats_assay_dropdown, "_", input$stats_normalization_dropdown, "_",
+            Sys.Date(), ".csv", sep = "")
+    },
+    content = function(file) {
+      req(ttest_results_protein())
+      write.csv(ttest_results_protein(), file, row.names = FALSE)
     }
   )
 }
