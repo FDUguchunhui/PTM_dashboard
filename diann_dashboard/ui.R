@@ -122,7 +122,7 @@ statisticalAnalysis <- tabPanel(
   title = "Statistical Analysis",
   fluidPage(
     titlePanel("T-test Analysis Between Cancer Types"),
-    
+
     fluidRow(
       column(4,
              selectInput("group1_cancer_types", "Group 1 Cancer Types",
@@ -131,41 +131,48 @@ statisticalAnalysis <- tabPanel(
              tags$small("Select cancer types for Group 1")
       ),
       column(4,
-             selectInput("group2_cancer_types", "Group 2 Cancer Types", 
+             selectInput("group2_cancer_types", "Group 2 Cancer Types",
                          choices = NULL, multiple = TRUE,
                          selected = NULL),
-             tags$small("Select cancer types for Group 2")
+             tags$small("Select cancer types for Group 2"),
+             br(),
+             checkboxInput("auto_group2", "Auto-select Group 2",
+                          value = FALSE),
+             tags$small("When checked, Group 2 will be all cancer types not in Group 1")
       ),
       column(4,
+             selectInput("stats_test_type", "Statistical Test Type",
+                         choices = c("T-test" = "t_test", "Wilcoxon" = "wilcoxon"),
+                         selected = "t_test"),
              selectInput("stats_assay_dropdown", "Assay",
                          choices = c('FT', 'IgB'), selected = 'FT'),
              selectInput("stats_normalization_dropdown", "Normalization",
                          choices = c('none', 'median', 'plate_median'), selected = 'none')
       )
     ),
-    
+
     fluidRow(
       column(12,
              tags$div(
                class = "alert alert-info",
-               "T-test will be performed for each peptide/modified peptide between the two selected groups. 
+               "T-test will be performed for each peptide/modified peptide between the two selected groups.
                 Log2 fold change is calculated as log2(mean_group1 / mean_group2)."
              )
       )
     ),
-    
+
     fluidRow(
       column(6,
-             actionButton("run_ttest", "Run T-test Analysis", 
+             actionButton("run_ttest", "Run T-test Analysis",
                          class = "btn-primary btn-lg"),
              br(), br()
       ),
       column(6,
-             numericInput("pvalue_threshold", "P-value Threshold", 
+             numericInput("pvalue_threshold", "P-value Threshold",
                          value = 0.05, min = 0.001, max = 1, step = 0.001)
       )
     ),
-    
+
     fluidRow(
       column(12,
              tabsetPanel(
@@ -174,7 +181,7 @@ statisticalAnalysis <- tabPanel(
                        br(),
                        downloadButton("download_ttest_modified_peptide", "Download Results")
                ),
-               tabPanel("Peptide Level Results", 
+               tabPanel("Peptide Level Results",
                        DT::dataTableOutput("ttest_peptide_results"),
                        br(),
                        downloadButton("download_ttest_peptide", "Download Results")
