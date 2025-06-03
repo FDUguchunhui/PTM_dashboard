@@ -724,9 +724,8 @@ server <- function(input, output, session) {
   ttest_results_peptide <- reactiveVal(NULL)
   ttest_results_protein <- reactiveVal(NULL)
 
-  # Run t-test analysis when button is clicked
-  observeEvent(input$run_test, {
-
+  # Run modified peptide analysis when button is clicked
+  observeEvent(input$run_modified_peptide_test, {
     req(input$group1_cancer_types, input$group2_cancer_types,
         input$stats_assay_dropdown, input$shared_normalization_dropdown,
         input$stats_test_type)
@@ -743,7 +742,7 @@ server <- function(input, output, session) {
     }
 
     # Show progress
-    showNotification("Running test analysis...", type = "message", duration = 2)
+    showNotification("Running modified peptide analysis...", type = "message", duration = 2)
 
     tryCatch({
       # Run analysis for modified peptide level
@@ -758,8 +757,35 @@ server <- function(input, output, session) {
       )
       ttest_results_modified_peptide(modified_peptide_results)
 
-      # Run analysis for peptide level
+      showNotification("Modified peptide analysis completed successfully!", type = "success")
 
+    }, error = function(e) {
+      showNotification(paste("Error in modified peptide analysis:", e$message), type = "error")
+    })
+  })
+
+  # Run peptide analysis when button is clicked
+  observeEvent(input$run_peptide_test, {
+    req(input$group1_cancer_types, input$group2_cancer_types,
+        input$stats_assay_dropdown, input$shared_normalization_dropdown,
+        input$stats_test_type)
+
+    # Validate that groups are different
+    if (length(intersect(input$group1_cancer_types, input$group2_cancer_types)) > 0) {
+      showNotification("Error: Groups cannot have overlapping cancer types!", type = "error")
+      return()
+    }
+
+    if (length(input$group1_cancer_types) == 0 || length(input$group2_cancer_types) == 0) {
+      showNotification("Error: Both groups must have at least one cancer type selected!", type = "error")
+      return()
+    }
+
+    # Show progress
+    showNotification("Running peptide analysis...", type = "message", duration = 2)
+
+    tryCatch({
+      # Run analysis for peptide level
       peptide_results <- perform_statistical_analysis(
         annotated_data(),
         input$group1_cancer_types,
@@ -771,6 +797,34 @@ server <- function(input, output, session) {
       )
       ttest_results_peptide(peptide_results)
 
+      showNotification("Peptide analysis completed successfully!", type = "success")
+
+    }, error = function(e) {
+      showNotification(paste("Error in peptide analysis:", e$message), type = "error")
+    })
+  })
+
+  # Run protein analysis when button is clicked
+  observeEvent(input$run_protein_test, {
+    req(input$group1_cancer_types, input$group2_cancer_types,
+        input$stats_assay_dropdown, input$shared_normalization_dropdown,
+        input$stats_test_type)
+
+    # Validate that groups are different
+    if (length(intersect(input$group1_cancer_types, input$group2_cancer_types)) > 0) {
+      showNotification("Error: Groups cannot have overlapping cancer types!", type = "error")
+      return()
+    }
+
+    if (length(input$group1_cancer_types) == 0 || length(input$group2_cancer_types) == 0) {
+      showNotification("Error: Both groups must have at least one cancer type selected!", type = "error")
+      return()
+    }
+
+    # Show progress
+    showNotification("Running protein analysis...", type = "message", duration = 2)
+
+    tryCatch({
       # Run analysis for protein level
       protein_results <- perform_statistical_analysis(
         protein_annotated_data(),
@@ -783,10 +837,10 @@ server <- function(input, output, session) {
       )
       ttest_results_protein(protein_results)
 
-      showNotification("Test analysis completed successfully!", type = "success")
+      showNotification("Protein analysis completed successfully!", type = "success")
 
     }, error = function(e) {
-      showNotification(paste("Error in test analysis:", e$message), type = "error")
+      showNotification(paste("Error in protein analysis:", e$message), type = "error")
     })
   })
 

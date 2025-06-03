@@ -315,7 +315,7 @@ statisticalAnalysis <- tabPanel(
       column(4,
              selectInput("stats_test_type", "Statistical Test Type",
                          choices = c("T-test" = "t_test", "Wilcoxon" = "wilcoxon"),
-                         selected = "t_test"),
+                         selected = "wilcoxon"),
              selectInput("stats_assay_dropdown", "Assay",
                          choices = c('FT', 'IgB'), selected = 'FT')
       )
@@ -329,12 +329,21 @@ statisticalAnalysis <- tabPanel(
     ),
 
     fluidRow(
-      column(6,
-             actionButton("run_test", "Run Analysis",
+      column(4,
+             actionButton("run_modified_peptide_test", "Run Modified Peptide Analysis",
+                         class = "btn-primary btn-lg"),
+             br(), br()
+      ),
+      column(4,
+             actionButton("run_peptide_test", "Run Peptide Analysis",
+                         class = "btn-primary btn-lg"),
+             br(), br()
+      ),
+      column(4,
+             actionButton("run_protein_test", "Run Protein Analysis",
                          class = "btn-primary btn-lg"),
              br(), br()
       )
-
     ),
 
     # Filtering controls
@@ -460,6 +469,12 @@ ui <- fluidPage(
           selectInput("shared_normalization_dropdown", "Normalization",
                       choices = c('none', 'median', 'plate_median'),
                       selected = 'none')
+        ),
+
+        div(style = "margin-bottom: 15px;",
+            selectInput("missing_handling", "Missing handling",
+                        choices = c("fill with 0", 'raw'),
+                        selected = 'raw')
         ),
 
         tags$hr(style = "border-color: #e9ecef;"),
