@@ -76,11 +76,14 @@ server <- function(input, output, session) {
   # Update Cancer Type Dropdown based on new processed data
   observe({
     cancer_types <- unique(metadata$`Cancer Type`[!is.na(metadata$`Cancer Type`)])
-    updateSelectInput(session, "shared_cancer_type_dropdown", choices = cancer_types)
+    updateSelectInput(session, "shared_cancer_type_dropdown", choices = cancer_types,
+                      selected = cancer_types[1])
 
     # Update statistical analysis dropdowns
-    updateSelectInput(session, "group1_cancer_types", choices = cancer_types)
-    updateSelectInput(session, "group2_cancer_types", choices = cancer_types)
+    updateSelectInput(session, "group1_cancer_types", choices = cancer_types,
+                      selected = cancer_types[1])
+    updateSelectInput(session, "group2_cancer_types", choices = cancer_types,
+                      selected = cancer_types[2])
   })
 
   # Make group selections mutually exclusive
@@ -722,9 +725,10 @@ server <- function(input, output, session) {
   ttest_results_protein <- reactiveVal(NULL)
 
   # Run t-test analysis when button is clicked
-  observeEvent(input$run_ttest, {
+  observeEvent(input$run_test, {
+
     req(input$group1_cancer_types, input$group2_cancer_types,
-        input$stats_assay_dropdown, input$stats_normalization_dropdown,
+        input$stats_assay_dropdown, input$shared_normalization_dropdown,
         input$stats_test_type)
 
     # Validate that groups are different
@@ -791,44 +795,94 @@ server <- function(input, output, session) {
     req(ttest_results_modified_peptide())
 
     results <- ttest_results_modified_peptide()
+    
+    # Remove the significant column
+    results$significant <- NULL
+
+    # Apply filters
+    if (!is.null(input$auc_filter)) {
+      results <- results[!is.na(results$auc) & 
+                        abs(results$auc - 0.5) >= input$auc_filter[1] | 
+                        abs(results$auc - 0.5) >= input$auc_filter[2], ]
+    }
+    
+    if (!is.null(input$log2fc_filter)) {
+      results <- results[!is.na(results$log2_fc) & 
+                        results$log2_fc >= input$log2fc_filter[1] & 
+                        results$log2_fc <= input$log2fc_filter[2], ]
+    }
+    
+    if (!is.null(input$show_significant_only) && input$show_significant_only) {
+      results <- results[!is.na(results$p_value) & 
+                        results$p_value < input$pvalue_threshold, ]
+    }
 
     # Format numeric columns
-    results$log2_fold_change <- round(results$log2_fold_change, 3)
+    results$log2_fc <- round(results$log2_fc, 3)
     results$p_value <- round(results$p_value, 6)
     results$mean_group1 <- round(results$mean_group1, 2)
     results$mean_group2 <- round(results$mean_group2, 2)
+    results$auc <- round(results$auc, 3)
 
-    DT::datatable(results,
+    dt <- DT::datatable(results,
                   options = list(
                     scrollX = TRUE,
                     pageLength = 25,
                     order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
                   ),
-                  rownames = FALSE) %>%
-      DT::formatStyle("significant",
-                      backgroundColor = DT::styleEqual(TRUE, "lightgreen"))
+                  rownames = FALSE)
+    
+    # Make p-values green if below threshold
+    dt %>%
+      DT::formatStyle("p_value",
+                      backgroundColor = DT::styleInterval(input$pvalue_threshold, c("lightgreen", "white")))
   })
 
   output$ttest_peptide_results <- DT::renderDataTable({
     req(ttest_results_peptide())
 
     results <- ttest_results_peptide()
+    
+    # Remove the significant column
+    results$significant <- NULL
+
+    # Apply filters
+    if (!is.null(input$auc_filter)) {
+      results <- results[!is.na(results$auc) & 
+                        results$auc >= input$auc_filter[1] & 
+                        results$auc <= input$auc_filter[2], ]
+    }
+    
+    if (!is.null(input$log2fc_filter)) {
+      results <- results[!is.na(results$log2_fc) & 
+                        results$log2_fc >= input$log2fc_filter[1] & 
+                        results$log2_fc <= input$log2fc_filter[2], ]
+    }
+    
+    if (!is.null(input$show_significant_only) && input$show_significant_only) {
+      results <- results[!is.na(results$p_value) & 
+                        results$p_value < input$pvalue_threshold, ]
+    }
 
     # Format numeric columns
-    results$log2_fold_change <- round(results$log2_fold_change, 3)
+    results$log2_fc<- round(results$log2_fc, 3)
     results$p_value <- round(results$p_value, 6)
     results$mean_group1 <- round(results$mean_group1, 2)
     results$mean_group2 <- round(results$mean_group2, 2)
+    results$auc <- round(results$auc, 3)
 
-    DT::datatable(results,
+    dt <- DT::datatable(results,
                   options = list(
                     scrollX = TRUE,
                     pageLength = 25,
                     order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
                   ),
-                  rownames = FALSE) %>%
-      DT::formatStyle("significant",
-                      backgroundColor = DT::styleEqual(TRUE, "lightgreen"))
+                  rownames = FALSE)
+    
+    # Make p-values green if below threshold
+    dt %>%
+      DT::formatStyle("p_value",
+                      backgroundColor = DT::styleInterval(input$pvalue_threshold, c("lightgreen", "white")))
   })
 
   output$ttest_protein_results <- DT::renderDataTable({
@@ -837,20 +891,24 @@ server <- function(input, output, session) {
     results <- ttest_results_protein()
 
     # Format numeric columns
-    results$log2_fold_change <- round(results$log2_fold_change, 3)
+    results$log2_fc <- round(results$log2_fc, 3)
     results$p_value <- round(results$p_value, 6)
     results$mean_group1 <- round(results$mean_group1, 2)
     results$mean_group2 <- round(results$mean_group2, 2)
+    results$auc <- round(results$auc, 3)
 
-    DT::datatable(results,
+    dt <- DT::datatable(results,
                   options = list(
                     scrollX = TRUE,
                     pageLength = 25,
                     order = list(list(which(colnames(results) == "p_value") - 1, 'asc'))
                   ),
-                  rownames = FALSE) %>%
-      DT::formatStyle("significant",
-                      backgroundColor = DT::styleEqual(TRUE, "lightgreen"))
+                  rownames = FALSE)
+    
+    # Make p-values green if below threshold
+    dt %>%
+      DT::formatStyle("p_value",
+                      backgroundColor = DT::styleInterval(input$pvalue_threshold, c("lightgreen", "white")))
   })
 
   # Statistical Analysis Download Handlers
