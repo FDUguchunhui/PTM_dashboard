@@ -38,10 +38,6 @@ ptmAnalysisTab <- tabPanel(
     ),
 
     fluidRow(
-      column(8,
-             selectInput("cancer_type_dropdown", "Select Cancer Types",
-                         choices = NULL, selected = c('Breast', 'MERIT Control'), multiple = TRUE)
-      ),
       column(4,
              sliderInput("bins_slider", "Number of Bins", min = 10, max = 100, value = 30, step = 1)
       )
@@ -74,16 +70,6 @@ batchEffect <- tabPanel(
 modifiedPeptideLevel <- tabPanel(
   title = "Modified peptide level",
   fluidPage(
-    fluidRow(
-      # dt table
-      selectInput("cancer_type_dropdown_output", "Select Cancer Types",
-                  choices = NULL, selected = c('Breast', 'MERIT Control'), multiple = TRUE),
-      selectInput("assay_dropdown_output", "Assay",
-                  choices = c('FT', 'IgB'), selected = c('FT','IgB'), multiple = TRUE),
-      selectInput("normalization_dropdown_output", "normaliztion",
-                  choices = c('none', 'median', 'plate_median'), selected = 'none'),
-    ),
-
     # warning
     tags$div(
       class = "alert alert-warning",
@@ -113,16 +99,6 @@ peptideLevel <- tabPanel(
 proteinLevel <- tabPanel(
   title = "Protein level",
   fluidPage(
-    fluidRow(
-      # dt table
-      selectInput("cancer_type_dropdown_protein", "Select Cancer Types",
-                  choices = NULL, selected = c('Breast', 'MERIT Control'), multiple = TRUE),
-      selectInput("assay_dropdown_protein", "Assay",
-                  choices = c('FT', 'IgB'), selected = c('FT','IgB'), multiple = TRUE),
-      selectInput("normalization_dropdown_protein", "normaliztion",
-                  choices = c('none', 'median', 'plate_median'), selected = 'none'),
-    ),
-
     # warning
     tags$div(
       class = "alert alert-warning",
@@ -161,9 +137,7 @@ statisticalAnalysis <- tabPanel(
                          choices = c("T-test" = "t_test", "Wilcoxon" = "wilcoxon"),
                          selected = "t_test"),
              selectInput("stats_assay_dropdown", "Assay",
-                         choices = c('FT', 'IgB'), selected = 'FT'),
-             selectInput("stats_normalization_dropdown", "Normalization",
-                         choices = c('none', 'median', 'plate_median'), selected = 'none')
+                         choices = c('FT', 'IgB'), selected = 'FT')
       )
     ),
 
@@ -213,13 +187,46 @@ statisticalAnalysis <- tabPanel(
   )
 )
 
-# Main UI using navbarPage to combine multiple pages
-ui <- navbarPage(
-  "DIANN PTM dashboard",
-  ptmAnalysisTab,
-  batchEffect,
-  modifiedPeptideLevel,
-  peptideLevel,
-  proteinLevel,
-  statisticalAnalysis
+# Main UI using sidebar layout with shared controls
+ui <- fluidPage(
+  titlePanel("DIANN PTM dashboard"),
+  
+  sidebarLayout(
+    sidebarPanel(
+      width = 3,
+      h4("Global Settings"),
+      tags$hr(),
+      
+      # Shared dropdowns that will be used across tabs
+      selectInput("shared_cancer_type_dropdown", "Select Cancer Types",
+                  choices = NULL, 
+                  selected = c('Breast', 'MERIT Control'), 
+                  multiple = TRUE),
+      
+      selectInput("shared_assay_dropdown", "Assay",
+                  choices = c('FT', 'IgB'), 
+                  selected = c('FT','IgB'), 
+                  multiple = TRUE),
+      
+      selectInput("shared_normalization_dropdown", "Normalization",
+                  choices = c('none', 'median', 'plate_median'), 
+                  selected = 'none'),
+      
+      tags$hr(),
+      tags$small("These settings apply to Modified Peptide Level, Peptide Level, and Protein Level tabs.")
+    ),
+    
+    mainPanel(
+      width = 9,
+      navbarPage(
+        "",
+        ptmAnalysisTab,
+        batchEffect,
+        modifiedPeptideLevel,
+        peptideLevel,
+        proteinLevel,
+        statisticalAnalysis
+      )
+    )
+  )
 )

@@ -43,7 +43,7 @@ create_download_handler <- function(data_func, prefix, file_dropdown, normalizat
 # Function to render data table
 render_data_table <- function(data_func) {
   DT::renderDataTable({
-    req(input$cancer_type_dropdown_output)
+    req(input$shared_cancer_type_dropdown)
 
     selected_table <- data_func()
 
@@ -76,9 +76,7 @@ server <- function(input, output, session) {
   # Update Cancer Type Dropdown based on new processed data
   observe({
     cancer_types <- unique(metadata$`Cancer Type`[!is.na(metadata$`Cancer Type`)])
-    updateSelectInput(session, "cancer_type_dropdown", choices = cancer_types)
-    updateSelectInput(session, "cancer_type_dropdown_output", choices = cancer_types)
-    updateSelectInput(session, "cancer_type_dropdown_protein", choices = cancer_types)
+    updateSelectInput(session, "shared_cancer_type_dropdown", choices = cancer_types)
 
     # Update statistical analysis dropdowns
     updateSelectInput(session, "group1_cancer_types", choices = cancer_types)
@@ -391,11 +389,11 @@ server <- function(input, output, session) {
 
   # Plot 4: Histogram of total intensity filtered by Cancer Type
   output$intensity_plot_cancer_type <- renderPlotly({
-    req(total_intensity_data(), input$cancer_type_dropdown, input$file_dropdown)
+    req(total_intensity_data(), input$shared_cancer_type_dropdown, input$file_dropdown)
 
     plot_data <- total_intensity_data() %>%
       filter(has_target_PTM,
-             `Cancer Type` %in% input$cancer_type_dropdown,
+             `Cancer Type` %in% input$shared_cancer_type_dropdown,
              assay %in% c("FT", "IgB"))
 
     plot_title <- paste("Distribution of Total Intensity with", input$file_dropdown)
@@ -412,11 +410,11 @@ server <- function(input, output, session) {
 
   # Plot5: Peptide-level histogram by Cancer Type
   output$pep_prop_plot_cancer_type <- renderPlotly({
-    req(peptide_level_aggregation(), input$cancer_type_dropdown, input$file_dropdown)
+    req(peptide_level_aggregation(), input$shared_cancer_type_dropdown, input$file_dropdown)
     ptm_info <- TARGET_PTM[[input$file_dropdown]]
 
     plot_data <- peptide_level_aggregation() %>%
-      filter(`Cancer Type` %in% input$cancer_type_dropdown,
+      filter(`Cancer Type` %in% input$shared_cancer_type_dropdown,
              assay %in% c("FT", "IgB")) %>%
       group_by(Run, `Cancer Type`, assay) %>%
       summarise(mean_has_target_PTM = mean(has_target_PTM, na.rm = TRUE)) %>%
@@ -436,11 +434,11 @@ server <- function(input, output, session) {
 
   # Plot 6: Protein-level histogram by Cancer Type
   output$prot_prop_plot_cancer_type <- renderPlotly({
-    req(protein_level_aggregation(), input$cancer_type_dropdown, input$file_dropdown)
+    req(protein_level_aggregation(), input$shared_cancer_type_dropdown, input$file_dropdown)
     ptm_info <- TARGET_PTM[[input$file_dropdown]]
 
     plot_data <- protein_level_aggregation() %>%
-      filter(`Cancer Type` %in% input$cancer_type_dropdown,
+      filter(`Cancer Type` %in% input$shared_cancer_type_dropdown,
              assay %in% c("FT", "IgB")) %>%
       group_by(Run, `Cancer Type`, assay) %>%
       summarise(mean_has_target_PTM = mean(has_target_PTM, na.rm = TRUE)) %>%
@@ -537,13 +535,13 @@ server <- function(input, output, session) {
 
   #-------------------------modified peptide level------------------------------
   output$peptide_table <- DT::renderDataTable({
-    req(input$cancer_type_dropdown_output)
+    req(input$shared_cancer_type_dropdown)
 
     # select column
     selected_table <- annotated_data()$create_filtered_view(
-      assay = input$assay_dropdown_output,
-      cancer_type=input$cancer_type_dropdown_output,
-      normalization=input$normalization_dropdown_output)$get_annotated_data()
+      assay = input$shared_assay_dropdown,
+      cancer_type=input$shared_cancer_type_dropdown,
+      normalization=input$shared_normalization_dropdown)$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -553,14 +551,14 @@ server <- function(input, output, session) {
   })
 
   output$modified_peptide_table <- DT::renderDataTable({
-    req(input$cancer_type_dropdown_output)
+    req(input$shared_cancer_type_dropdown)
 
     # select column
 
     selected_table <- modified_pep_annotated_data()$create_filtered_view(
-      assay = input$assay_dropdown_output,
-      cancer_type=input$cancer_type_dropdown_output,
-      normalization=input$normalization_dropdown_output)$get_annotated_data()
+      assay = input$shared_assay_dropdown,
+      cancer_type=input$shared_cancer_type_dropdown,
+      normalization=input$shared_normalization_dropdown)$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -570,13 +568,13 @@ server <- function(input, output, session) {
   })
 
   output$protein_table <- DT::renderDataTable({
-    req(input$cancer_type_dropdown_protein)
+    req(input$shared_cancer_type_dropdown)
 
     # select column
     selected_table <- protein_annotated_data()$create_filtered_view(
-      assay = input$assay_dropdown_protein,
-      cancer_type=input$cancer_type_dropdown_protein,
-      normalization=input$normalization_dropdown_protein)$get_annotated_data()
+      assay = input$shared_assay_dropdown,
+      cancer_type=input$shared_cancer_type_dropdown,
+      normalization=input$shared_normalization_dropdown)$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -588,16 +586,16 @@ server <- function(input, output, session) {
   output$download_modified_peptide <- downloadHandler(
     filename = function() {
       paste("modified_peptide_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
-            input$normalization_dropdown_output, '_',
+            input$shared_normalization_dropdown, '_',
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
       selected_table <- modified_pep_annotated_data()$create_filtered_view(
-        assay = input$assay_dropdown_output,
-        cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)$get_annotated_data()
+        assay = input$shared_assay_dropdown,
+        cancer_type=input$shared_cancer_type_dropdown,
+        normalization=input$shared_normalization_dropdown)$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -605,16 +603,16 @@ server <- function(input, output, session) {
   output$download_modified_peptide_long <- downloadHandler(
     filename = function() {
       paste("modified_peptide_long_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
-            input$normalization_dropdown_output, '_',
+            input$shared_normalization_dropdown, '_',
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
       selected_table <- modified_pep_annotated_data()$create_filtered_view(
-        assay = input$assay_dropdown_output,
-        cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)$get_annotated_data()
+        assay = input$shared_assay_dropdown,
+        cancer_type=input$shared_cancer_type_dropdown,
+        normalization=input$shared_normalization_dropdown)$get_annotated_data()
       # convert to long format
       selected_table <- selected_table %>%
         # this is bad hardcoded todo: fix it
@@ -631,16 +629,16 @@ server <- function(input, output, session) {
   output$download_peptide <- downloadHandler(
     filename = function() {
       paste("peptide_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
-            input$normalization_dropdown_output, '_',
+            input$shared_normalization_dropdown, '_',
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
       selected_table <- annotated_data()$create_filtered_view(
-        assay = input$assay_dropdown_output,
-        cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)$get_annotated_data()
+        assay = input$shared_assay_dropdown,
+        cancer_type=input$shared_cancer_type_dropdown,
+        normalization=input$shared_normalization_dropdown)$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -648,16 +646,16 @@ server <- function(input, output, session) {
   output$download_peptide_long <- downloadHandler(
     filename = function() {
       paste("peptide_level_long", TARGET_PTM[[input$file_dropdown]]$name, '_',
-            input$normalization_dropdown_output, '_',
+            input$shared_normalization_dropdown, '_',
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
       selected_table <- annotated_data()$create_filtered_view(
-        assay = input$assay_dropdown_output,
-        cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)$get_annotated_data()
+        assay = input$shared_assay_dropdown,
+        cancer_type=input$shared_cancer_type_dropdown,
+        normalization=input$shared_normalization_dropdown)$get_annotated_data()
       # convert it into long format
       browser()
       selected_table <- selected_table %>%
@@ -673,14 +671,14 @@ server <- function(input, output, session) {
   output$download_protein <- downloadHandler(
     filename = function() {
       paste("protein_level_", TARGET_PTM[[input$file_dropdown]]$name, '_',
-            input$normalization_dropdown_protein, '_',
+            input$shared_normalization_dropdown, '_',
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       selected_table <- protein_annotated_data()$create_filtered_view(
-        assay = input$assay_dropdown_protein,
-        cancer_type=input$cancer_type_dropdown_protein,
-        normalization=input$normalization_dropdown_protein)$get_annotated_data()
+        assay = input$shared_assay_dropdown,
+        cancer_type=input$shared_cancer_type_dropdown,
+        normalization=input$shared_normalization_dropdown)$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -688,14 +686,14 @@ server <- function(input, output, session) {
   output$download_protein_long <- downloadHandler(
     filename = function() {
       paste("protein_level_long_", TARGET_PTM[[input$file_dropdown]]$name, '_',
-            input$normalization_dropdown_protein, '_',
+            input$shared_normalization_dropdown, '_',
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
       selected_table <- protein_annotated_data()$create_filtered_view(
-        assay = input$assay_dropdown_protein,
-        cancer_type=input$cancer_type_dropdown_protein,
-        normalization=input$normalization_dropdown_protein)$get_annotated_data()
+        assay = input$shared_assay_dropdown,
+        cancer_type=input$shared_cancer_type_dropdown,
+        normalization=input$shared_normalization_dropdown)$get_annotated_data()
       # convert it into long format
       selected_table <- selected_table %>%
         tidyr::pivot_longer(cols = 5:ncol(.),
@@ -750,7 +748,7 @@ server <- function(input, output, session) {
         input$group1_cancer_types,
         input$group2_cancer_types,
         input$stats_assay_dropdown,
-        input$stats_normalization_dropdown,
+        input$shared_normalization_dropdown,
         input$stats_test_type,
         input$pvalue_threshold
       )
@@ -763,7 +761,7 @@ server <- function(input, output, session) {
         input$group1_cancer_types,
         input$group2_cancer_types,
         input$stats_assay_dropdown,
-        input$stats_normalization_dropdown,
+        input$shared_normalization_dropdown,
         input$stats_test_type,
         input$pvalue_threshold
       )
@@ -775,7 +773,7 @@ server <- function(input, output, session) {
         input$group1_cancer_types,
         input$group2_cancer_types,
         input$stats_assay_dropdown,
-        input$stats_normalization_dropdown,
+        input$shared_normalization_dropdown,
         input$stats_test_type,
         input$pvalue_threshold
       )
