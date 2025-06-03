@@ -1,0 +1,27 @@
+Package: AnnotatedDataPackage
+Type: Package
+Title: Biological Data Management with Metadata
+Version: 1.0.0
+Date: 2024-01-01
+Author: Your Name
+Maintainer: Your Name <your.email@example.com>
+Description: An R6 class for managing biological/medical data matrices with 
+    associated metadata. Provides functionality for data validation, filtering, 
+    normalization, and creating processed views of the data while preserving 
+    original data integrity.
+License: MIT
+Encoding: UTF-8
+LazyData: true
+Depends: 
+    R (>= 3.5.0)
+Imports:
+    R6,
+    dplyr
+Suggests:
+    testthat,
+    knitr,
+    rmarkdown
+VignetteBuilder: knitr
+RoxygenNote: 7.2.0
+Collate:
+    'data_object_documented.R'

@@ -540,10 +540,10 @@ server <- function(input, output, session) {
     req(input$cancer_type_dropdown_output)
 
     # select column
-    selected_table <- annotated_data()$get_data(
+    selected_table <- annotated_data()$create_filtered_view(
       assay = input$assay_dropdown_output,
       cancer_type=input$cancer_type_dropdown_output,
-      normalization=input$normalization_dropdown_output)
+      normalization=input$normalization_dropdown_output)$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -557,10 +557,10 @@ server <- function(input, output, session) {
 
     # select column
 
-    selected_table <- modified_pep_annotated_data()$get_data(
+    selected_table <- modified_pep_annotated_data()$create_filtered_view(
       assay = input$assay_dropdown_output,
       cancer_type=input$cancer_type_dropdown_output,
-      normalization=input$normalization_dropdown_output)
+      normalization=input$normalization_dropdown_output)$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -573,10 +573,10 @@ server <- function(input, output, session) {
     req(input$cancer_type_dropdown_protein)
 
     # select column
-    selected_table <- protein_annotated_data()$get_data(
+    selected_table <- protein_annotated_data()$create_filtered_view(
       assay = input$assay_dropdown_protein,
       cancer_type=input$cancer_type_dropdown_protein,
-      normalization=input$normalization_dropdown_protein)
+      normalization=input$normalization_dropdown_protein)$get_annotated_data()
 
     DT::datatable(selected_table,
                   options = list(
@@ -594,10 +594,10 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
-      selected_table <- modified_pep_annotated_data()$get_data(
+      selected_table <- modified_pep_annotated_data()$create_filtered_view(
         assay = input$assay_dropdown_output,
         cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)
+        normalization=input$normalization_dropdown_output)$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -611,10 +611,10 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
-      selected_table <- modified_pep_annotated_data()$get_data(
+      selected_table <- modified_pep_annotated_data()$create_filtered_view(
         assay = input$assay_dropdown_output,
         cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)
+        normalization=input$normalization_dropdown_output)$get_annotated_data()
       # convert to long format
       selected_table <- selected_table %>%
         # this is bad hardcoded todo: fix it
@@ -637,10 +637,10 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
-      selected_table <- annotated_data()$get_data(
+      selected_table <- annotated_data()$create_filtered_view(
         assay = input$assay_dropdown_output,
         cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)
+        normalization=input$normalization_dropdown_output)$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -654,10 +654,10 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
-      selected_table <- annotated_data()$get_data(
+      selected_table <- annotated_data()$create_filtered_view(
         assay = input$assay_dropdown_output,
         cancer_type=input$cancer_type_dropdown_output,
-        normalization=input$normalization_dropdown_output)
+        normalization=input$normalization_dropdown_output)$get_annotated_data()
       # convert it into long format
       browser()
       selected_table <- selected_table %>%
@@ -677,10 +677,10 @@ server <- function(input, output, session) {
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
-      selected_table <- protein_annotated_data()$get_data(
+      selected_table <- protein_annotated_data()$create_filtered_view(
         assay = input$assay_dropdown_protein,
         cancer_type=input$cancer_type_dropdown_protein,
-        normalization=input$normalization_dropdown_protein)
+        normalization=input$normalization_dropdown_protein)$get_annotated_data()
       write.csv(selected_table, file, row.names = FALSE)
     }
   )
@@ -692,10 +692,10 @@ server <- function(input, output, session) {
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
-      selected_table <- protein_annotated_data()$get_data(
+      selected_table <- protein_annotated_data()$create_filtered_view(
         assay = input$assay_dropdown_protein,
         cancer_type=input$cancer_type_dropdown_protein,
-        normalization=input$normalization_dropdown_protein)
+        normalization=input$normalization_dropdown_protein)$get_annotated_data()
       # convert it into long format
       selected_table <- selected_table %>%
         tidyr::pivot_longer(cols = 5:ncol(.),

@@ -15,30 +15,70 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
     stop("pROC package is required but not installed. Please install it with: install.packages('pROC')")
   }
 
-  # Validate test_type parameter
+  # Validate inputs
+  if (is.null(annotated_data)) {
+    stop("annotated_data cannot be NULL")
+  }
+
+  if (length(group1_types) == 0 || length(group2_types) == 0) {
+    stop("Both group1_types and group2_types must contain at least one cancer type")
+  }
+
   if (!test_type %in% c("t_test", "wilcoxon")) {
     stop("test_type must be either 't_test' or 'wilcoxon'")
   }
 
-  # Get data for each group
-  group1_data <- annotated_data$get_data(
-    cancer_type = group1_types,
-    assay = assay,
-    normalization = normalization
-  )
+  if (pvalue_threshold <= 0 || pvalue_threshold >= 1) {
+    stop("pvalue_threshold must be between 0 and 1")
+  }
 
-  group2_data <- annotated_data$get_data(
-    cancer_type = group2_types,
-    assay = assay,
-    normalization = normalization
-  )
+  # Check if annotated_data has required methods
+  if (!exists("get_annotated_data", where = annotated_data) || !exists("get_row_metadata", where = annotated_data)) {
+    stop("annotated_data must have get_data() and get_row_metadata() methods")
+  }
+
+  # Get data for each group
+  tryCatch({
+    group1_data <- annotated_data$create_filtered_view(
+      cancer_type = group1_types,
+      assay = assay,
+      normalization = normalization
+    )$get_annotated_data()
+
+    group2_data <- annotated_data$create_filtered_view(
+      cancer_type = group2_types,
+      assay = assay,
+      normalization = normalization
+    )$get_annotated_data()
+  }, error = function(e) {
+    stop(paste("Error retrieving data:", e$message))
+  })
+
+  # Validate that data was retrieved
+  if (is.null(group1_data) || is.null(group2_data)) {
+    stop("Failed to retrieve data for one or both groups")
+  }
+
+  if (nrow(group1_data) == 0 || nrow(group2_data) == 0) {
+    stop("No data found for one or both groups")
+  }
+
+  if (nrow(group1_data) != nrow(group2_data)) {
+    stop("Group 1 and Group 2 data have different numbers of features")
+  }
 
   # Get row metadata columns to identify the intensity columns
-  row_meta_cols <- colnames(annotated_data$get_row_metadata())
+  row_metadata <- annotated_data$get_row_metadata()
+  row_meta_cols <- colnames(row_metadata)
 
   # Get intensity column names (exclude row metadata columns)
   group1_intensity_cols <- setdiff(colnames(group1_data), row_meta_cols)
   group2_intensity_cols <- setdiff(colnames(group2_data), row_meta_cols)
+
+  # Check if there are any intensity columns
+  if (length(group1_intensity_cols) == 0 || length(group2_intensity_cols) == 0) {
+    stop("No intensity columns found after removing metadata columns")
+  }
 
   # Initialize results dataframe
   n_rows <- nrow(group1_data)
@@ -57,7 +97,6 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
   )
 
   # Add row metadata to results
-  row_metadata <- annotated_data$get_row_metadata()
   results <- cbind(row_metadata, results[, c("log2_fold_change", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_NA_1", "num_non_NA_2", "auc")])
 
   # Function to calculate AUC using pROC package
@@ -66,8 +105,13 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
       return(NA)
     }
 
-    # Combine values and create labels
+    # Check if all values are the same (would cause pROC to fail)
     all_values <- c(group1_vals, group2_vals)
+    if (length(unique(all_values)) <= 1) {
+      return(0.5)  # AUC = 0.5 when all values are identical
+    }
+
+    # Combine values and create labels
     labels <- c(rep(1, length(group1_vals)), rep(0, length(group2_vals)))
 
     # Use pROC to calculate AUC
@@ -133,7 +177,7 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
           results$p_value[i] <- test_result$p.value
         } else if (test_type == "wilcoxon") {
           # Wilcoxon rank-sum test (Mann-Whitney U test)
-          test_result <- wilcoxon.test(group1_values, group2_values, exact = FALSE)
+          test_result <- wilcox.test(group1_values, group2_values, exact = FALSE)
           results$p_value[i] <- test_result$p.value
         }
       }, error = function(e) {
