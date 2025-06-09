@@ -111,8 +111,8 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
   group1_orig <- apply(group1_orig, 2, as.numeric)
   group2_orig <- apply(group2_orig, 2, as.numeric)
 
-  num_non_NA_1 <- rowSums(!is.na(group1_orig) & group1_orig != 0)
-  num_non_NA_2 <- rowSums(!is.na(group2_orig) & group2_orig != 0)
+  num_non_0_NA_1 <- rowSums(!is.na(group1_orig) & group1_orig != 0)
+  num_non_0_NA_2 <- rowSums(!is.na(group2_orig) & group2_orig != 0)
 
   # Count valid values (after removing zeros and NAs)
   n_group1 <- ncol(group1_matrix)
@@ -209,8 +209,8 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
     mean_group2 = mean_group2,
     n_group1 = n_group1,
     n_group2 = n_group2,
-    num_non_NA_1 = num_non_NA_1,
-    num_non_NA_2 = num_non_NA_2,
+    num_non_0_NA_1 = num_non_0_NA_1,
+    num_non_0_NA_2 = num_non_0_NA_2,
     auc = auc,
     stringsAsFactors = FALSE
   )

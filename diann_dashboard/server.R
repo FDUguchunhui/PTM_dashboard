@@ -881,6 +881,11 @@ server <- function(input, output, session) {
 
     # Remove the significant column
     results$significant <- NULL
+    
+    # Reorder columns to put auc right after log2_fc
+    col_order <- c(colnames(results)[!colnames(results) %in% c("log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")],
+                   "log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")
+    results <- results[, col_order]
 
     # Apply filters
     if (!is.null(input$auc_filter)) {
@@ -928,6 +933,11 @@ server <- function(input, output, session) {
 
     # Remove the significant column
     results$significant <- NULL
+    
+    # Reorder columns to put auc right after log2_fc
+    col_order <- c(colnames(results)[!colnames(results) %in% c("log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")],
+                   "log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")
+    results <- results[, col_order]
 
     # Apply filters
     if (!is.null(input$auc_filter)) {
@@ -975,6 +985,11 @@ server <- function(input, output, session) {
 
     # Remove the significant column
     results$significant <- NULL
+    
+    # Reorder columns to put auc right after log2_fc
+    col_order <- c(colnames(results)[!colnames(results) %in% c("log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")],
+                   "log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")
+    results <- results[, col_order]
 
     # Apply filters
     if (!is.null(input$auc_filter)) {
