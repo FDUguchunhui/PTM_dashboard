@@ -21,10 +21,12 @@ get_missing_fill_value <- function(missing_handling) {
   }
 }
 
+CAMPAGIN <- "RAINBOW"
+
 # Function to process data given a ptm_choice
 load_data <- function(ptm_choice) {
   ptm_info <- TARGET_PTM[[ptm_choice]]
-  path <- sprintf("../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_%s_report-lib.parquet", ptm_info$symbol)
+  path <- glue::glue("../data/{CAMPAGIN}/UNIPROT_human_revi_2024_12_19_ProteinAG_{ptm_info$symbol}_report-lib.predicted.speclib.parquet")
   df <- read_parquet(path)
   df %>%
     mutate(
