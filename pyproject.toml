@@ -1,0 +1,17 @@
+[tool.poetry]
+name = "diann-analysis"
+version = "0.1.0"
+description = "Automaticated pipeline for protein searching from DIANN"
+authors = ["Chunhui Gu <fduguchunhui@gmail.com>"]
+readme = "README.md"
+
+[tool.poetry.dependencies]
+python = "^3.11"
+dash = "^2.18.2"
+pandas = "^2.2.3"
+pyarrow = "^19.0.1"
+
+
+[build-system]
+requires = ["poetry-core"]
+build-backend = "poetry.core.masonry.api"
