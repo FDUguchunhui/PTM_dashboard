@@ -63,6 +63,75 @@ render_data_table <- function(data_func) {
   })
 }
 
+# Function to create boxplot for selected item
+create_item_boxplot <- function(annotated_data_obj, item_column, selected_item, cancer_types, assay, normalization, missing_fill, title_prefix) {
+  tryCatch({
+    # Get filtered data
+    filtered_data <- annotated_data_obj$create_filtered_view(
+      assay = assay,
+      cancer_type = cancer_types,
+      normalization = normalization,
+      missing_fill = missing_fill
+    )
+
+    # Get the data matrix and metadata
+    data_matrix <- filtered_data$get_data_matrix()
+    row_metadata <- filtered_data$get_row_metadata()
+    col_metadata <- filtered_data$get_col_metadata()
+
+    # Find the row index for the selected item
+    if (item_column == "Modified.Sequence") {
+      row_idx <- which(row_metadata$Modified.Sequence == selected_item)
+    } else if (item_column == "Stripped.Sequence") {
+      row_idx <- which(row_metadata$Stripped.Sequence == selected_item)
+    } else if (item_column == "Protein.Group") {
+      row_idx <- which(row_metadata$Protein.Group == selected_item)
+    }
+
+    if (length(row_idx) == 0) {
+      return(NULL)
+    }
+
+    # Get intensity data for the selected item
+    intensity_data <- data_matrix[row_idx[1], ]
+
+    # Create a data frame for plotting
+    plot_data <- data.frame(
+      Run = colnames(data_matrix),
+      Intensity = as.numeric(intensity_data),
+      stringsAsFactors = FALSE
+    )
+    # browser()
+    # Filter and join with metadata
+    plot_data <- plot_data %>%
+      # replace na with 0
+      dplyr::mutate(Intensity = ifelse(is.na(Intensity), 0, Intensity)) %>%
+      dplyr::left_join(col_metadata, by = "Run") %>%
+      dplyr::mutate(log_intensity = log10(Intensity+ 1))
+
+    if (nrow(plot_data) == 0) {
+      return(NULL)
+    }
+
+    # Create the boxplot
+    p <- ggplot(plot_data, aes(x = `Cancer Type`, y = log_intensity, fill = assay)) +
+      geom_boxplot(alpha = 0.7, outlier.alpha = 0.5) +
+      geom_point(position = position_jitterdodge(dodge.width = 0.75, jitter.width = 0.2),
+                 alpha = 0.6, size = 1) +
+      theme_minimal() +
+      theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+      labs(x = "Cancer Type",
+           y = "Log10(Intensity)",
+           title = paste(title_prefix, ":", selected_item),
+           fill = "Assay") +
+      scale_fill_brewer(type = "qual", palette = "Set2")
+
+    return(p)
+  }, error = function(e) {
+    return(NULL)
+  })
+}
+
 
 # ----------------- Shiny Server -----------------
 
@@ -96,6 +165,7 @@ server <- function(input, output, session) {
     updateSelectInput(session, "group2_cancer_types", choices = cancer_types,
                       selected = cancer_types[2])
   })
+
 
   # Make group selections mutually exclusive
   observeEvent(input$group1_cancer_types, {
@@ -583,6 +653,34 @@ server <- function(input, output, session) {
 
   })
 
+  # Modified peptide boxplot
+  output$modified_peptide_boxplot <- renderPlotly({
+    req(input$selected_modified_peptide, input$shared_cancer_type_dropdown,
+        input$shared_assay_dropdown, input$shared_normalization_dropdown,
+        input$missing_handling)
+
+    p <- create_item_boxplot(
+      modified_pep_annotated_data(),
+      "Modified.Sequence",
+      input$selected_modified_peptide,
+      input$shared_cancer_type_dropdown,
+      input$shared_assay_dropdown,
+      input$shared_normalization_dropdown,
+      get_missing_fill_value(input$missing_handling),
+      "Modified Peptide"
+    )
+
+    if (is.null(p)) {
+      # Create an empty plot
+      empty_plot <- ggplot() +
+        theme_void() +
+        labs(title = "No data available for selected modified peptide")
+      return(ggplotly(empty_plot))
+    }
+
+    ggplotly(p, tooltip = c("x", "y", "fill"))
+  })
+
   output$protein_table <- DT::renderDataTable({
     req(input$shared_cancer_type_dropdown, input$missing_handling)
 
@@ -598,6 +696,79 @@ server <- function(input, output, session) {
                     scrollX = TRUE
                   ))
 
+  })
+
+  # Protein boxplot
+  output$protein_boxplot <- renderPlotly({
+    req(input$selected_protein, input$shared_cancer_type_dropdown,
+        input$shared_assay_dropdown, input$shared_normalization_dropdown,
+        input$missing_handling)
+
+    p <- create_item_boxplot(
+      protein_annotated_data(),
+      "Protein.Group",
+      input$selected_protein,
+      input$shared_cancer_type_dropdown,
+      input$shared_assay_dropdown,
+      input$shared_normalization_dropdown,
+      get_missing_fill_value(input$missing_handling),
+      "Protein"
+    )
+
+    if (is.null(p)) {
+      # Create an empty plot
+      empty_plot <- ggplot() +
+        theme_void() +
+        labs(title = "No data available for selected protein")
+      return(ggplotly(empty_plot))
+    }
+
+    ggplotly(p, tooltip = c("x", "y", "fill"))
+  })
+
+  output$peptide_table <- DT::renderDataTable({
+    req(input$shared_cancer_type_dropdown, input$missing_handling)
+
+    # select column
+    selected_table <- annotated_data()$create_filtered_view(
+      assay = input$shared_assay_dropdown,
+      cancer_type=input$shared_cancer_type_dropdown,
+      normalization=input$shared_normalization_dropdown,
+      missing_fill = get_missing_fill_value(input$missing_handling))$get_annotated_data()
+
+    DT::datatable(selected_table,
+                  options = list(
+                    scrollX = TRUE
+                  ))
+
+  })
+
+  # Peptide boxplot
+  output$peptide_boxplot <- renderPlotly({
+    req(input$selected_peptide, input$shared_cancer_type_dropdown,
+        input$shared_assay_dropdown, input$shared_normalization_dropdown,
+        input$missing_handling)
+
+    p <- create_item_boxplot(
+      annotated_data(),
+      "Stripped.Sequence",
+      input$selected_peptide,
+      input$shared_cancer_type_dropdown,
+      input$shared_assay_dropdown,
+      input$shared_normalization_dropdown,
+      get_missing_fill_value(input$missing_handling),
+      "Peptide"
+    )
+
+    if (is.null(p)) {
+      # Create an empty plot
+      empty_plot <- ggplot() +
+        theme_void() +
+        labs(title = "No data available for selected peptide")
+      return(ggplotly(empty_plot))
+    }
+
+    ggplotly(p, tooltip = c("x", "y", "fill"))
   })
 
   output$download_modified_peptide <- downloadHandler(
@@ -881,7 +1052,7 @@ server <- function(input, output, session) {
 
     # Remove the significant column
     results$significant <- NULL
-    
+
     # Reorder columns to put auc right after log2_fc
     col_order <- c(colnames(results)[!colnames(results) %in% c("log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")],
                    "log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")
@@ -933,7 +1104,7 @@ server <- function(input, output, session) {
 
     # Remove the significant column
     results$significant <- NULL
-    
+
     # Reorder columns to put auc right after log2_fc
     col_order <- c(colnames(results)[!colnames(results) %in% c("log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")],
                    "log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")
@@ -985,7 +1156,7 @@ server <- function(input, output, session) {
 
     # Remove the significant column
     results$significant <- NULL
-    
+
     # Reorder columns to put auc right after log2_fc
     col_order <- c(colnames(results)[!colnames(results) %in% c("log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")],
                    "log2_fc", "auc", "p_value", "mean_group1", "mean_group2", "n_group1", "n_group2", "num_non_0_NA_1", "num_non_0_NA_2")
@@ -1076,106 +1247,106 @@ server <- function(input, output, session) {
   # Volcano Plot Outputs
   output$volcano_modified_peptide <- renderPlotly({
     req(ttest_results_modified_peptide())
-    
+
     results <- ttest_results_modified_peptide()
-    
+
     # Calculate -log10(p_value) and handle p_value = 0 cases
-    results$neg_log10_pval <- ifelse(results$p_value == 0, 
+    results$neg_log10_pval <- ifelse(results$p_value == 0,
                                      max(-log10(results$p_value[results$p_value > 0]), na.rm = TRUE) + 1,
                                      -log10(results$p_value))
-    
+
     # Create significance categories for coloring
     results$significance <- "Not Significant"
-    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold &
                         !is.na(results$log2_fc) & results$log2_fc > 0] <- "Upregulated"
-    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold &
                         !is.na(results$log2_fc) & results$log2_fc < 0] <- "Downregulated"
-    
+
     # Create the volcano plot
     p <- ggplot(results, aes(x = log2_fc, y = neg_log10_pval, color = significance)) +
       geom_point(alpha = 0.6, size = 1) +
-      scale_color_manual(values = c("Not Significant" = "gray", 
-                                   "Upregulated" = "red", 
+      scale_color_manual(values = c("Not Significant" = "gray",
+                                   "Upregulated" = "red",
                                    "Downregulated" = "blue")) +
       geom_hline(yintercept = -log10(input$pvalue_threshold), linetype = "dashed", color = "black") +
       geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
-      labs(x = "Log2 Fold Change", 
+      labs(x = "Log2 Fold Change",
            y = "-Log10(P-value)",
            title = "Volcano Plot - Modified Peptide Level",
            color = "Significance") +
       theme_minimal() +
       theme(legend.position = "bottom")
-    
+
     ggplotly(p, tooltip = c("x", "y"))
   })
 
   output$volcano_peptide <- renderPlotly({
     req(ttest_results_peptide())
-    
+
     results <- ttest_results_peptide()
-    
+
     # Calculate -log10(p_value) and handle p_value = 0 cases
-    results$neg_log10_pval <- ifelse(results$p_value == 0, 
+    results$neg_log10_pval <- ifelse(results$p_value == 0,
                                      max(-log10(results$p_value[results$p_value > 0]), na.rm = TRUE) + 1,
                                      -log10(results$p_value))
-    
+
     # Create significance categories for coloring
     results$significance <- "Not Significant"
-    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold &
                         !is.na(results$log2_fc) & results$log2_fc > 0] <- "Upregulated"
-    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold &
                         !is.na(results$log2_fc) & results$log2_fc < 0] <- "Downregulated"
-    
+
     # Create the volcano plot
     p <- ggplot(results, aes(x = log2_fc, y = neg_log10_pval, color = significance)) +
       geom_point(alpha = 0.6, size = 1) +
-      scale_color_manual(values = c("Not Significant" = "gray", 
-                                   "Upregulated" = "red", 
+      scale_color_manual(values = c("Not Significant" = "gray",
+                                   "Upregulated" = "red",
                                    "Downregulated" = "blue")) +
       geom_hline(yintercept = -log10(input$pvalue_threshold), linetype = "dashed", color = "black") +
       geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
-      labs(x = "Log2 Fold Change", 
+      labs(x = "Log2 Fold Change",
            y = "-Log10(P-value)",
            title = "Volcano Plot - Peptide Level",
            color = "Significance") +
       theme_minimal() +
       theme(legend.position = "bottom")
-    
+
     ggplotly(p, tooltip = c("x", "y"))
   })
 
   output$volcano_protein <- renderPlotly({
     req(ttest_results_protein())
-    
+
     results <- ttest_results_protein()
-    
+
     # Calculate -log10(p_value) and handle p_value = 0 cases
-    results$neg_log10_pval <- ifelse(results$p_value == 0, 
+    results$neg_log10_pval <- ifelse(results$p_value == 0,
                                      max(-log10(results$p_value[results$p_value > 0]), na.rm = TRUE) + 1,
                                      -log10(results$p_value))
-    
+
     # Create significance categories for coloring
     results$significance <- "Not Significant"
-    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold &
                         !is.na(results$log2_fc) & results$log2_fc > 0] <- "Upregulated"
-    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold &
                         !is.na(results$log2_fc) & results$log2_fc < 0] <- "Downregulated"
-    
+
     # Create the volcano plot
     p <- ggplot(results, aes(x = log2_fc, y = neg_log10_pval, color = significance)) +
       geom_point(alpha = 0.6, size = 1) +
-      scale_color_manual(values = c("Not Significant" = "gray", 
-                                   "Upregulated" = "red", 
+      scale_color_manual(values = c("Not Significant" = "gray",
+                                   "Upregulated" = "red",
                                    "Downregulated" = "blue")) +
       geom_hline(yintercept = -log10(input$pvalue_threshold), linetype = "dashed", color = "black") +
       geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
-      labs(x = "Log2 Fold Change", 
+      labs(x = "Log2 Fold Change",
            y = "-Log10(P-value)",
            title = "Volcano Plot - Protein Level",
            color = "Significance") +
       theme_minimal() +
       theme(legend.position = "bottom")
-    
+
     ggplotly(p, tooltip = c("x", "y"))
   })
 }

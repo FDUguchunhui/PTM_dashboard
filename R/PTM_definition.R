@@ -9,7 +9,6 @@ TARGET_PTM <- list(
   Deoxyhypusine = list(name = "Deoxyhypusine_K",
                        symbol = "Deoxyhypusine", unimod='UniMod:1301', site = "K", mass_shift = 71.073499),
   Trimethylation = list(name='Trimethylation_KR',
-                        path = '../data/RAINBOW_UNIPROT_human_revi_2024_12_19_ProteinAG_diann37_report-lib.parquet',
                         symbol = 'diann37', unimod='UniMod:37', site = 'K|R', mass_shift = 42.046950),
 
   #Dimethyl: UniMod:36,28.031300,KR

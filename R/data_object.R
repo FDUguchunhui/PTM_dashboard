@@ -250,6 +250,16 @@ AnnotatedData <- R6Class(
       return(self$row_metadata)
     },
     
+    #' @description Get current data matrix
+    #' @return A numeric matrix of the current data
+    #' @examples
+    #' \dontrun{
+    #' data_matrix <- annotated_data$get_data_matrix()
+    #' }
+    get_data_matrix = function() {
+      return(self$data)
+    },
+    
     #' @description Get original, unprocessed data and metadata
     #' @return A list containing original data, col_metadata, and row_metadata
     #' @examples

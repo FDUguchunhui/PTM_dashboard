@@ -262,6 +262,27 @@ modifiedPeptideLevel <- tabPanel(
       downloadButton("download_modified_peptide_long", "Download Long Format", class = "btn-primary"),
       downloadButton("download_metadata", "Download Metadata", class = "btn-primary")
     )
+  ),
+  
+  # Modified Peptide Selection and Boxplot
+  div(class = "plot-card",
+    h4("Modified Peptide Intensity Boxplot", style = "color: #667eea; margin-bottom: 20px;"),
+    fluidRow(
+      column(6,
+        textInput("selected_modified_peptide", "Enter Modified Peptide Sequence",
+                 value = "",
+                 placeholder = "Type modified peptide sequence...")
+      ),
+      column(6,
+        tags$div(
+          class = "alert alert-info",
+          style = "margin-top: 25px;",
+          tags$i(class = "fas fa-info-circle", style = "margin-right: 8px;"),
+          "Enter a modified peptide sequence to view its intensity distribution across cancer types and assays."
+        )
+      )
+    ),
+    plotlyOutput("modified_peptide_boxplot", height = "500px")
   )
 )
 
@@ -279,6 +300,27 @@ peptideLevel <- tabPanel(
       downloadButton("download_peptide", "Download Data", class = "btn-primary"),
       downloadButton("download_peptide_long", "Download Long Format", class = "btn-primary")
     )
+  ),
+  
+  # Peptide Selection and Boxplot
+  div(class = "plot-card",
+    h4("Peptide Intensity Boxplot", style = "color: #667eea; margin-bottom: 20px;"),
+    fluidRow(
+      column(6,
+        textInput("selected_peptide", "Enter Peptide Sequence (Stripped)",
+                 value = "",
+                 placeholder = "Type stripped peptide sequence...")
+      ),
+      column(6,
+        tags$div(
+          class = "alert alert-info",
+          style = "margin-top: 25px;",
+          tags$i(class = "fas fa-info-circle", style = "margin-right: 8px;"),
+          "Enter a peptide sequence to view its intensity distribution across cancer types and assays."
+        )
+      )
+    ),
+    plotlyOutput("peptide_boxplot", height = "500px")
   )
 )
 
@@ -296,6 +338,27 @@ proteinLevel <- tabPanel(
       downloadButton("download_protein", "Download Data", class = "btn-primary"),
       downloadButton("download_protein_long", "Download Long Format", class = "btn-primary")
     )
+  ),
+  
+  # Protein Selection and Boxplot
+  div(class = "plot-card",
+    h4("Protein Intensity Boxplot", style = "color: #667eea; margin-bottom: 20px;"),
+    fluidRow(
+      column(6,
+        textInput("selected_protein", "Enter Protein Group",
+                 value = "",
+                 placeholder = "Type protein group...")
+      ),
+      column(6,
+        tags$div(
+          class = "alert alert-info",
+          style = "margin-top: 25px;",
+          tags$i(class = "fas fa-info-circle", style = "margin-right: 8px;"),
+          "Enter a protein group to view its intensity distribution across cancer types and assays."
+        )
+      )
+    ),
+    plotlyOutput("protein_boxplot", height = "500px")
   )
 )
 
