@@ -87,11 +87,9 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
   group1_matrix <- as.matrix(group1_data[, group1_intensity_cols, drop = FALSE])
   group2_matrix <- as.matrix(group2_data[, group2_intensity_cols, drop = FALSE])
 
-  # Convert to numeric and replace 0 with NA for more robust analysis
+  # Convert to numeric but keep 0 values (don't treat as missing)
   group1_matrix <- apply(group1_matrix, 2, as.numeric)
   group2_matrix <- apply(group2_matrix, 2, as.numeric)
-  group1_matrix[group1_matrix <= 0] <- NA
-  group2_matrix[group2_matrix <= 0] <- NA
 
   n_rows <- nrow(group1_matrix)
 
@@ -102,8 +100,8 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
   mean_group2 <- numeric(n_rows)
   n_group1 <- integer(n_rows)
   n_group2 <- integer(n_rows)
-  num_non_NA_1 <- integer(n_rows)
-  num_non_NA_2 <- integer(n_rows)
+  num_non_0_NA_1 <- integer(n_rows)
+  num_non_0_NA_2 <- integer(n_rows)
   auc <- numeric(n_rows)
 
   # Vectorized calculations
@@ -125,7 +123,7 @@ perform_statistical_analysis <- function(annotated_data, group1_types, group2_ty
   mean_group2 <- rowMeans(group2_matrix, na.rm = TRUE)
 
   # Calculate log2 fold change vectorized
-  valid_means <- (mean_group1 > 0) & (mean_group2 > 0) & !is.na(mean_group1) & !is.na(mean_group2)
+  valid_means <- !is.na(mean_group1) & !is.na(mean_group2)
   log2_fc[valid_means] <- log2(mean_group1[valid_means] / mean_group2[valid_means])
   log2_fc[!valid_means] <- NA
 

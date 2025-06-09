@@ -547,7 +547,7 @@ server <- function(input, output, session) {
 
   #-------------------------modified peptide level------------------------------
   output$peptide_table <- DT::renderDataTable({
-    req(input$shared_cancer_type_dropdown)
+    req(input$shared_cancer_type_dropdown, input$missing_handling)
 
     # select column
     selected_table <- annotated_data()$create_filtered_view(
@@ -564,7 +564,7 @@ server <- function(input, output, session) {
   })
 
   output$modified_peptide_table <- DT::renderDataTable({
-    req(input$shared_cancer_type_dropdown)
+    req(input$shared_cancer_type_dropdown, input$missing_handling)
 
     # select column
 
@@ -582,7 +582,7 @@ server <- function(input, output, session) {
   })
 
   output$protein_table <- DT::renderDataTable({
-    req(input$shared_cancer_type_dropdown)
+    req(input$shared_cancer_type_dropdown, input$missing_handling)
 
     # select column
     selected_table <- protein_annotated_data()$create_filtered_view(
@@ -607,6 +607,7 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
+      req(input$missing_handling)
       selected_table <- modified_pep_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
@@ -625,6 +626,7 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
+      req(input$missing_handling)
       selected_table <- modified_pep_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
@@ -652,6 +654,7 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
+      req(input$missing_handling)
       selected_table <- annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
@@ -670,6 +673,7 @@ server <- function(input, output, session) {
     content = function(file) {
       # Assuming peptide_data() is the reactive that contains your data for the table.
       # You can also use the data directly if it isn't reactive.
+      req(input$missing_handling)
       selected_table <- annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
@@ -694,6 +698,7 @@ server <- function(input, output, session) {
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
+      req(input$missing_handling)
       selected_table <- protein_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
@@ -710,6 +715,7 @@ server <- function(input, output, session) {
             Sys.Date(), ".csv", sep = "")
     },
     content = function(file) {
+      req(input$missing_handling)
       selected_table <- protein_annotated_data()$create_filtered_view(
         assay = input$shared_assay_dropdown,
         cancer_type=input$shared_cancer_type_dropdown,
@@ -746,7 +752,7 @@ server <- function(input, output, session) {
   observeEvent(input$run_modified_peptide_test, {
     req(input$group1_cancer_types, input$group2_cancer_types,
         input$stats_assay_dropdown, input$shared_normalization_dropdown,
-        input$stats_test_type)
+        input$stats_test_type, input$missing_handling)
 
     # Validate that groups are different
     if (length(intersect(input$group1_cancer_types, input$group2_cancer_types)) > 0) {
@@ -787,7 +793,7 @@ server <- function(input, output, session) {
   observeEvent(input$run_peptide_test, {
     req(input$group1_cancer_types, input$group2_cancer_types,
         input$stats_assay_dropdown, input$shared_normalization_dropdown,
-        input$stats_test_type)
+        input$stats_test_type, input$missing_handling)
 
     # Validate that groups are different
     if (length(intersect(input$group1_cancer_types, input$group2_cancer_types)) > 0) {
@@ -828,7 +834,7 @@ server <- function(input, output, session) {
   observeEvent(input$run_protein_test, {
     req(input$group1_cancer_types, input$group2_cancer_types,
         input$stats_assay_dropdown, input$shared_normalization_dropdown,
-        input$stats_test_type)
+        input$stats_test_type, input$missing_handling)
 
     # Validate that groups are different
     if (length(intersect(input$group1_cancer_types, input$group2_cancer_types)) > 0) {
