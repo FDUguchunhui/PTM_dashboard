@@ -389,17 +389,23 @@ statisticalAnalysis <- tabPanel(
       tabPanel("Modified Peptide Level Results",
               DT::dataTableOutput("ttest_modified_peptide_results"),
               br(),
-              downloadButton("download_ttest_modified_peptide", "Download Results", class = "btn-primary")
+              downloadButton("download_ttest_modified_peptide", "Download Results", class = "btn-primary"),
+              br(),
+              plotlyOutput("volcano_modified_peptide", height = "1000px")
       ),
       tabPanel("Peptide Level Results",
               DT::dataTableOutput("ttest_peptide_results"),
               br(),
-              downloadButton("download_ttest_peptide", "Download Results", class = "btn-primary")
+              downloadButton("download_ttest_peptide", "Download Results", class = "btn-primary"),
+              br(),
+              plotlyOutput("volcano_peptide", height = "1000px")
       ),
       tabPanel("Protein Level Results",
               DT::dataTableOutput("ttest_protein_results"),
               br(),
-              downloadButton("download_ttest_protein", "Download Results", class = "btn-primary")
+              downloadButton("download_ttest_protein", "Download Results", class = "btn-primary"),
+              br(),
+              plotlyOutput("volcano_protein", height = "1000px")
       )
     )
   )
@@ -489,9 +495,7 @@ ui <- fluidPage(
                         selected = 'raw')
         ),
 
-        tags$hr(style = "border-color: #e9ecef;"),
-        tags$small("These settings apply to Modified Peptide Level, Peptide Level, and Protein Level tabs.",
-                  class = "text-muted")
+        tags$hr(style = "border-color: #e9ecef;")
       )
     ),
 

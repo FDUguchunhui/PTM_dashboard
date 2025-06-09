@@ -1057,4 +1057,110 @@ server <- function(input, output, session) {
       write.csv(ttest_results_protein(), file, row.names = FALSE)
     }
   )
+
+  # Volcano Plot Outputs
+  output$volcano_modified_peptide <- renderPlotly({
+    req(ttest_results_modified_peptide())
+    
+    results <- ttest_results_modified_peptide()
+    
+    # Calculate -log10(p_value) and handle p_value = 0 cases
+    results$neg_log10_pval <- ifelse(results$p_value == 0, 
+                                     max(-log10(results$p_value[results$p_value > 0]), na.rm = TRUE) + 1,
+                                     -log10(results$p_value))
+    
+    # Create significance categories for coloring
+    results$significance <- "Not Significant"
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+                        !is.na(results$log2_fc) & results$log2_fc > 0] <- "Upregulated"
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+                        !is.na(results$log2_fc) & results$log2_fc < 0] <- "Downregulated"
+    
+    # Create the volcano plot
+    p <- ggplot(results, aes(x = log2_fc, y = neg_log10_pval, color = significance)) +
+      geom_point(alpha = 0.6, size = 1) +
+      scale_color_manual(values = c("Not Significant" = "gray", 
+                                   "Upregulated" = "red", 
+                                   "Downregulated" = "blue")) +
+      geom_hline(yintercept = -log10(input$pvalue_threshold), linetype = "dashed", color = "black") +
+      geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+      labs(x = "Log2 Fold Change", 
+           y = "-Log10(P-value)",
+           title = "Volcano Plot - Modified Peptide Level",
+           color = "Significance") +
+      theme_minimal() +
+      theme(legend.position = "bottom")
+    
+    ggplotly(p, tooltip = c("x", "y"))
+  })
+
+  output$volcano_peptide <- renderPlotly({
+    req(ttest_results_peptide())
+    
+    results <- ttest_results_peptide()
+    
+    # Calculate -log10(p_value) and handle p_value = 0 cases
+    results$neg_log10_pval <- ifelse(results$p_value == 0, 
+                                     max(-log10(results$p_value[results$p_value > 0]), na.rm = TRUE) + 1,
+                                     -log10(results$p_value))
+    
+    # Create significance categories for coloring
+    results$significance <- "Not Significant"
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+                        !is.na(results$log2_fc) & results$log2_fc > 0] <- "Upregulated"
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+                        !is.na(results$log2_fc) & results$log2_fc < 0] <- "Downregulated"
+    
+    # Create the volcano plot
+    p <- ggplot(results, aes(x = log2_fc, y = neg_log10_pval, color = significance)) +
+      geom_point(alpha = 0.6, size = 1) +
+      scale_color_manual(values = c("Not Significant" = "gray", 
+                                   "Upregulated" = "red", 
+                                   "Downregulated" = "blue")) +
+      geom_hline(yintercept = -log10(input$pvalue_threshold), linetype = "dashed", color = "black") +
+      geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+      labs(x = "Log2 Fold Change", 
+           y = "-Log10(P-value)",
+           title = "Volcano Plot - Peptide Level",
+           color = "Significance") +
+      theme_minimal() +
+      theme(legend.position = "bottom")
+    
+    ggplotly(p, tooltip = c("x", "y"))
+  })
+
+  output$volcano_protein <- renderPlotly({
+    req(ttest_results_protein())
+    
+    results <- ttest_results_protein()
+    
+    # Calculate -log10(p_value) and handle p_value = 0 cases
+    results$neg_log10_pval <- ifelse(results$p_value == 0, 
+                                     max(-log10(results$p_value[results$p_value > 0]), na.rm = TRUE) + 1,
+                                     -log10(results$p_value))
+    
+    # Create significance categories for coloring
+    results$significance <- "Not Significant"
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+                        !is.na(results$log2_fc) & results$log2_fc > 0] <- "Upregulated"
+    results$significance[!is.na(results$p_value) & results$p_value < input$pvalue_threshold & 
+                        !is.na(results$log2_fc) & results$log2_fc < 0] <- "Downregulated"
+    
+    # Create the volcano plot
+    p <- ggplot(results, aes(x = log2_fc, y = neg_log10_pval, color = significance)) +
+      geom_point(alpha = 0.6, size = 1) +
+      scale_color_manual(values = c("Not Significant" = "gray", 
+                                   "Upregulated" = "red", 
+                                   "Downregulated" = "blue")) +
+      geom_hline(yintercept = -log10(input$pvalue_threshold), linetype = "dashed", color = "black") +
+      geom_vline(xintercept = 0, linetype = "dashed", color = "black") +
+      labs(x = "Log2 Fold Change", 
+           y = "-Log10(P-value)",
+           title = "Volcano Plot - Protein Level",
+           color = "Significance") +
+      theme_minimal() +
+      theme(legend.position = "bottom")
+    
+    ggplotly(p, tooltip = c("x", "y"))
+  })
 }
