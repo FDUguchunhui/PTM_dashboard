@@ -1,4 +1,4 @@
-Package: AnnotatedDataPackage
+Package: diann_dashboard
 Type: Package
 Title: Biological Data Management with Metadata
 Version: 1.0.0
@@ -13,15 +13,27 @@ License: MIT
 Encoding: UTF-8
 LazyData: true
 Depends: 
-    R (>= 3.5.0)
-Imports:
+    R (>= 3.5.0),
+    arrow,
+    bslib,
+    data.table,
+    dplyr,
+    DT,
+    ggplot2,
+    glue,
+    plotly,
+    pROC,
     R6,
-    dplyr
+    readr,
+    shiny,
+    stringr,
+    tidyr
+Imports:
 Suggests:
+    roxygen2,
+    renv,
     testthat,
     knitr,
     rmarkdown
 VignetteBuilder: knitr
 RoxygenNote: 7.2.0
-Collate:
-    'data_object_documented.R'

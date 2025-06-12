@@ -1,7 +1,3 @@
-library(shiny)
-library(plotly)
-library(bslib)
-
 source('../R/PTM_definition.R')
 
 # Custom CSS for styling and collapsible sidebar

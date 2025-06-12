@@ -1,13 +1,4 @@
 # Load required libraries
-library(shiny)
-library(dplyr)
-library(readr)
-library(stringr)
-library(ggplot2)
-library(plotly)
-library(arrow)
-library(data.table)
-
 metadata <- read_csv("../data/metadata.csv")
 
 # ----------------- Helper Functions -----------------

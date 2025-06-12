@@ -1,0 +1,56 @@
+# Development environments and IDE files
+.venv/
+.idea/
+.Rproj.user/
+.git/
+.Rproj
+.Rprofile
+
+# Large data files and directories (15GB total)
+data/
+output/
+
+# Test files and documentation
+tests/
+rmarkdown/
+docs/
+README.md
+
+# Python environment files
+python/
+poetry.lock
+pyproject.toml
+
+# Large binary files
+diann-1.9.2.tar
+*.tar
+*.tar.gz
+*.zip
+
+# R package management (since RENV_ACTIVATE=FALSE)
+renv/
+renv.lock
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# Log files
+*.log
+
+# Temporary files
+*.tmp
+*.temp
+*~
+
+# Build artifacts
+*.o
+*.so
+*.dll
+*.exe
+
