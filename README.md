@@ -63,6 +63,8 @@ install.packages(c("R6", "dplyr", "testthat", "knitr", "rmarkdown"))
 
 # Install the package
 devtools::install()
+# or simulate installation
+devtools::load_all()
 ```
 
 ### Docker Installation

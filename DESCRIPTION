@@ -1,4 +1,4 @@
-Package: diann_dashboard
+Package: diann
 Type: Package
 Title: Biological Data Management with Metadata
 Version: 1.0.0
